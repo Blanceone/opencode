@@ -1,0 +1,84 @@
+OpenCode 本机集成 — 工作进展与后续事项
+============================================
+日期：2026-08-11
+分支：personal（基于 origin/dev 浅克隆）
+远程：origin = https://github.com/Blanceone/opencode.git（同步用 origin/dev）
+本机约束：
+  - 工具链：D:\work\ai\builder_tools（OPENCODE_BUILDER_TOOLS）
+  - 依赖缓存 / tarball / openwiki-bundle：仓库根 depends/（gitignored，勿上传）
+  - OpenWiki worker 必须用 Node（非 Bun）：OPENWIKI_NODE_BINARY 或 PATH 上的 node
+
+一、产品目标（已确认）
+--------------------
+- 将 OpenChamber 的 OpenWiki（code-mode，产物在 <project>/.wiki/）嵌入 OpenCode
+- 不单独登录 OpenWiki；模型跟随 OpenCode 当前选择（免费 Zen 可匿名）
+- 文档语言固定 zh-CN；LLM 经本机 OpenAI-compatible gateway，密钥不进子进程
+
+二、已完成工作（2026-08-11 入库 personal）
+----------------------------------------
+
+【提交 85b95b6】feat(openwiki): add OpenWiki adapter package
+- packages/openwiki：paths/bind/ownership/marker/format/presets/job-store/runner/worker
+- LLM gateway + upstream（含免费 Zen 匿名）
+- resolve-current-model：override → 请求 → model.json → config → opencode/big-pickle
+- ensureWikiReference：generate 成功后写入 opencode.json references.wiki
+- worker-runtime：禁止用 Bun 起 worker（better-sqlite3）；解析 Node
+- 单测：ownership / bind / references / resolve-model / worker-runtime / status smoke（16 pass）
+- DOCUMENTATION.md、.cursor/rules/local-workflow.mdc、.gitignore（depends / .wiki / desktop resources）
+
+【提交 f794fdc】feat(core): wire OpenWiki service and wiki tools
+- schema/protocol：/api/openwiki/*（status/format/consent/generate/update/job/cancel）
+- server handlers + client generate（openwikis.*）
+- core OpenWiki Location 服务；wiki_read / wiki_search 内置工具
+
+【提交 626500a】feat(app): add OpenWiki UI with consent, format, and i18n
+- App DialogOpenWiki：当前模型、consent、进度/错误、format 编辑、/wiki 命令
+- TUI 侧栏 Wiki：generate/update/cancel/consent
+- i18n 全 locale 键；zh 有简体译文；修复 custom-elements.d.ts 引用
+
+【提交 bc87646】feat(desktop): stage OpenWiki bundle for packaging
+- prepare-openwiki.ts；predev/prebuild 挂钩；electron-builder 条件打包 resources/openwiki
+
+三、本机验证（2026-08-11）
+------------------------
+- bun install：遇 ghostty-web SSL 时可用 NODE_TLS_REJECT_UNAUTHORIZED=0 + depends/bun-cache
+- CLI：openwiki status / generate --model opencode/big-pickle --wait → completed
+  - 产物：.wiki/{index,overview,quickstart,main-module}.md + marker
+  - 自动写入 opencode.json references.wiki → ./.wiki
+- 模型切换：--model opencode/gpt-5-nano 时 status.model 跟随
+- packages/{schema,protocol,core,server,client,tui,app} typecheck 通过（本机）
+- desktop prepare-openwiki：resources/openwiki staging OK
+- 未做：TUI/App GUI 完整手测；付费模型登录路径 E2E；安装包代码签名
+
+四、自定义 / 自部署模型影响（结论）
+--------------------------------
+- OpenWiki 跟随 OpenCode 当前模型；新增自定义模型不会破坏功能本身
+- 自建 OpenAI-compatible：需 provider options.baseURL + apiKey，选中后即可 generate
+- 无 baseURL → provider-unsupported-for-openwiki；无 key → no-provider-login
+- 质量取决于模型能力（工具调用/上下文）；密钥仍只在父进程 gateway
+
+五、安装产物（待本机打包填写）
+----------------------------
+命令（Windows）：
+  cd packages/desktop
+  bun run build
+  bun run package:win
+产物目录：packages/desktop/dist/
+  - opencode-desktop-win-*.exe / win-unpacked（含 resources/openwiki 若已 prepare）
+
+六、后续建议
+------------
+1. 产品手测：bun dev（TUI）+ bun dev:web（App /wiki）走 generate/update/cancel/consent
+2. 付费模型：登录后非免费模型走 gateway，确认密钥不进子进程
+3. 与 origin/dev 同步（rebase/merge personal）
+4. 若提 PR：整理 commit 边界；补 Server HttpApi 集成测；非 zh 文案可 translate:app
+5. 明确暂不做：OpenWiki personal/MCP/PostHog、官方 visualize、并进 Session V2、第二套模型登录 UI
+
+七、关键命令
+------------
+bun run --cwd packages/openwiki openwiki status --dir <项目>
+bun run --cwd packages/openwiki openwiki generate --dir <项目> --wait
+bun test --cwd packages/openwiki
+bun ./scripts/prepare-openwiki.ts   # 在 packages/desktop
+# Worker Node（示例）：
+#   $env:OPENWIKI_NODE_BINARY="d:\work\app\nodejs\node.exe"
