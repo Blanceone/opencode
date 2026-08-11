@@ -40,5 +40,19 @@ export function useNewSessionCommands(input: {
       disabled: input.project.empty(),
       onSelect: input.project.open,
     },
+    {
+      id: "wiki.open",
+      title: language.t("command.wiki.open"),
+      description: language.t("command.wiki.open.description"),
+      category: language.t("command.category.project"),
+      slash: "wiki",
+      disabled: input.project.empty(),
+      onSelect: () => {
+        void import("@/components/dialog-openwiki").then((mod) => {
+          dialog.show(() => <mod.DialogOpenWiki />)
+          input.restoreFocus()
+        })
+      },
+    },
   ])
 }

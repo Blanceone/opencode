@@ -4,6 +4,9 @@ import { Button } from "@opencode-ai/ui/button"
 import { useSDK } from "@/context/sdk"
 import { useLocal } from "@/context/local"
 import { useLanguage } from "@/context/language"
+import { usePlatform } from "@/context/platform"
+import { useServerSDK } from "@/context/server-sdk"
+import { authTokenFromCredentials } from "@/utils/server"
 
 type WikiStatus = {
   wikiExists: boolean
@@ -36,28 +39,27 @@ const PRESET_IDS = ["openwiki-default", "architecture-module", "api-service", "c
 
 const ACTIVE_STAGES = new Set(["queued", "preparing", "mapping-model", "running", "writing"])
 
-async function openwikiFetch<T>(directory: string, path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, {
-    ...init,
-    headers: {
-      "content-type": "application/json",
-      "x-opencode-directory": directory,
-      ...(init?.headers || {}),
-    },
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => "")
-    throw new Error(text || `${res.status} ${res.statusText}`)
-  }
-  const json = (await res.json()) as { data?: T } | T
+function unwrapData<T>(json: { data?: T } | T): T {
   if (json && typeof json === "object" && "data" in json) return (json as { data: T }).data
   return json as T
+}
+
+function parseErrorBody(text: string, fallback: string) {
+  if (!text) return fallback
+  try {
+    const json = JSON.parse(text) as { message?: string; data?: { message?: string }; error?: { message?: string } }
+    return json.data?.message || json.error?.message || json.message || text
+  } catch {
+    return text
+  }
 }
 
 export const DialogOpenWiki: Component = () => {
   const sdk = useSDK()
   const local = useLocal()
   const language = useLanguage()
+  const platform = usePlatform()
+  const serverSDK = useServerSDK()
   const [status, setStatus] = createSignal<WikiStatus | null>(null)
   const [format, setFormat] = createSignal<FormatBundle | null>(null)
   const [presets, setPresets] = createSignal<FormatPreset[]>([])
@@ -66,7 +68,6 @@ export const DialogOpenWiki: Component = () => {
   const [showFormat, setShowFormat] = createSignal(false)
 
   const directory = () => sdk().directory
-  const api = () => sdk().api as Record<string, any>
 
   const modelRef = createMemo(() => {
     const model = local.model.current()
@@ -87,6 +88,34 @@ export const DialogOpenWiki: Component = () => {
     return !!stage && ACTIVE_STAGES.has(stage)
   })
 
+  const openwikiFetch = async <T,>(path: string, init?: RequestInit): Promise<T> => {
+    const server = serverSDK().server.http
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      "x-opencode-directory": encodeURIComponent(directory()),
+    }
+    if (server.password) {
+      headers.Authorization = `Basic ${authTokenFromCredentials({
+        username: server.username,
+        password: server.password,
+      })}`
+    }
+    const fetchFn = platform.fetch ?? globalThis.fetch
+    const res = await fetchFn(new URL(path, server.url), {
+      ...init,
+      headers: {
+        ...headers,
+        ...(init?.headers as Record<string, string> | undefined),
+      },
+    })
+    if (!res.ok) {
+      const text = await res.text().catch(() => "")
+      if (res.status === 404) throw new Error(language.t("dialog.openwiki.error.apiUnavailable"))
+      throw new Error(parseErrorBody(text, `${res.status} ${res.statusText}`))
+    }
+    return unwrapData(await res.json())
+  }
+
   const formatFailure = (jobError?: WikiStatus["job"] extends null ? never : NonNullable<WikiStatus["job"]>["error"]) => {
     if (!jobError) return null
     if (jobError.code === "no-provider-login" || jobError.code === "provider-unsupported-for-openwiki") {
@@ -104,38 +133,34 @@ export const DialogOpenWiki: Component = () => {
     return jobError.message || null
   }
 
+  const formatCaughtError = (e: unknown) => {
+    if (!(e instanceof Error)) return String(e)
+    const message = e.message.trim()
+    if (!message || message === "Not found" || message === "Not Found" || /\b404\b/.test(message)) {
+      return language.t("dialog.openwiki.error.apiUnavailable")
+    }
+    return message
+  }
+
+  const presetLabel = (id: string) => {
+    if (id === "openwiki-default") return language.t("dialog.openwiki.format.preset.openwiki-default")
+    if (id === "architecture-module") return language.t("dialog.openwiki.format.preset.architecture-module")
+    if (id === "api-service") return language.t("dialog.openwiki.format.preset.api-service")
+    if (id === "custom") return language.t("dialog.openwiki.format.preset.custom")
+    return id
+  }
+
   const refresh = async () => {
     try {
       const selected = modelRef()
-      const client = api()
-      const nextStatus: WikiStatus = client.openwikis?.status
-        ? (
-            await client.openwikis.status({
-              location: { directory: directory() },
-              ...(selected ? { model: `${selected.providerID}/${selected.modelID}` } : {}),
-            })
-          ).data
-        : await openwikiFetch<WikiStatus>(
-            directory(),
-            `/api/openwiki/status${
-              selected ? `?model=${encodeURIComponent(`${selected.providerID}/${selected.modelID}`)}` : ""
-            }`,
-          )
+      const modelQuery = selected ? `?model=${encodeURIComponent(`${selected.providerID}/${selected.modelID}`)}` : ""
+      const nextStatus = await openwikiFetch<WikiStatus>(`/api/openwiki/status${modelQuery}`)
       setStatus(nextStatus)
-
-      const nextFormat: FormatBundle = client.openwikis?.formatGet
-        ? (await client.openwikis.formatGet({ location: { directory: directory() } })).data
-        : await openwikiFetch<FormatBundle>(directory(), "/api/openwiki/format")
-      setFormat(nextFormat)
-
-      const nextPresets: FormatPreset[] = client.openwikis?.formatPresets
-        ? ((await client.openwikis.formatPresets({ location: { directory: directory() } })).data ?? [])
-        : await openwikiFetch<FormatPreset[]>(directory(), "/api/openwiki/format/presets")
-      setPresets(nextPresets)
-
+      setFormat(await openwikiFetch<FormatBundle>("/api/openwiki/format"))
+      setPresets((await openwikiFetch<FormatPreset[]>("/api/openwiki/format/presets")) ?? [])
       setError(formatFailure(nextStatus.job?.error))
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(formatCaughtError(e))
     }
   }
 
@@ -144,27 +169,17 @@ export const DialogOpenWiki: Component = () => {
     setError(null)
     try {
       const selected = modelRef()
-      const client = api()
-      if (client.openwikis?.[command]) {
-        if (command === "cancel") {
-          await client.openwikis.cancel({ location: { directory: directory() } })
-        } else {
-          await client.openwikis[command]({
-            location: { directory: directory() },
-            ...(selected ? { model: selected } : {}),
-          })
-        }
-      } else if (command === "cancel") {
-        await openwikiFetch(directory(), "/api/openwiki/cancel", { method: "POST", body: "{}" })
+      if (command === "cancel") {
+        await openwikiFetch("/api/openwiki/cancel", { method: "POST", body: "{}" })
       } else {
-        await openwikiFetch(directory(), `/api/openwiki/${command}`, {
+        await openwikiFetch(`/api/openwiki/${command}`, {
           method: "POST",
           body: JSON.stringify(selected ? { model: selected } : {}),
         })
       }
       await refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(formatCaughtError(e))
     } finally {
       setBusy(false)
     }
@@ -174,22 +189,13 @@ export const DialogOpenWiki: Component = () => {
     setBusy(true)
     setError(null)
     try {
-      const client = api()
-      if (client.openwikis?.consent) {
-        await client.openwikis.consent({
-          location: { directory: directory() },
-          consent: true,
-          consentAction,
-        })
-      } else {
-        await openwikiFetch(directory(), "/api/openwiki/consent", {
-          method: "POST",
-          body: JSON.stringify({ consent: true, consentAction }),
-        })
-      }
+      await openwikiFetch("/api/openwiki/consent", {
+        method: "POST",
+        body: JSON.stringify({ consent: true, consentAction }),
+      })
       await refresh()
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(formatCaughtError(e))
     } finally {
       setBusy(false)
     }
@@ -204,23 +210,14 @@ export const DialogOpenWiki: Component = () => {
     setBusy(true)
     setError(null)
     try {
-      const client = api()
-      if (client.openwikis?.formatPut) {
-        const res = await client.openwikis.formatPut({
-          location: { directory: directory() },
-          ...patch,
-        })
-        setFormat(res.data)
-      } else {
-        setFormat(
-          await openwikiFetch<FormatBundle>(directory(), "/api/openwiki/format", {
-            method: "PUT",
-            body: JSON.stringify(patch),
-          }),
-        )
-      }
+      setFormat(
+        await openwikiFetch<FormatBundle>("/api/openwiki/format", {
+          method: "PUT",
+          body: JSON.stringify(patch),
+        }),
+      )
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
+      setError(formatCaughtError(e))
     } finally {
       setBusy(false)
     }
@@ -338,7 +335,7 @@ export const DialogOpenWiki: Component = () => {
                   }}
                 >
                   <For each={presets().length ? presets().map((p) => p.id) : [...PRESET_IDS]}>
-                    {(id) => <option value={id}>{id}</option>}
+                    {(id) => <option value={id}>{presetLabel(id)}</option>}
                   </For>
                 </select>
               </label>

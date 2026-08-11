@@ -734,6 +734,7 @@ export const dict = {
   "session.new.workspace.local": "Local repository",
   "session.new.workspace.existing": "Workspace…",
   "session.new.git.none": "No Git",
+  "session.new.wiki": "Wiki",
   "session.new.lastModified": "Last modified",
 
   "session.header.search.placeholder": "Search {{project}}",
@@ -1173,6 +1174,10 @@ export const dict = {
   "dialog.openwiki.format.hide": "Hide format",
   "dialog.openwiki.format.title": "Format",
   "dialog.openwiki.format.preset": "Preset",
+  "dialog.openwiki.format.preset.openwiki-default": "Default",
+  "dialog.openwiki.format.preset.architecture-module": "Architecture module",
+  "dialog.openwiki.format.preset.api-service": "API service",
+  "dialog.openwiki.format.preset.custom": "Custom",
   "dialog.openwiki.format.instructions": "Instructions",
   "dialog.openwiki.format.body": "FORMAT.md",
   "dialog.openwiki.tip.references": "Generate also writes references.wiki -> ./.wiki into opencode.json for @wiki mentions.",
@@ -1181,4 +1186,5 @@ export const dict = {
   "dialog.openwiki.error.noProviderLogin": "Provider {{provider}} is not logged in.",
   "dialog.openwiki.error.providerUnsupported": "Provider {{provider}} is not supported for OpenWiki.",
   "dialog.openwiki.error.opencodeLoginRequired": "This OpenCode model needs a Zen login, or pick a free anonymous model.",
+  "dialog.openwiki.error.apiUnavailable": "OpenWiki API is unavailable. Restart the app after updating, or confirm the local server is running.",
 }

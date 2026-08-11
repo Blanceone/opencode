@@ -8,7 +8,7 @@ import { createStore } from "solid-js/store"
 import { Portal } from "solid-js/web"
 import createPresence from "solid-presence"
 import { PromptInputV2Composer } from "@/components/prompt-input-v2"
-import { PromptGitStatus, PromptWorkspaceSelector } from "@/components/prompt-workspace-selector"
+import { PromptGitStatus, PromptWikiButton, PromptWorkspaceSelector } from "@/components/prompt-workspace-selector"
 import {
   PromptProjectAddButton,
   PromptProjectSelector,
@@ -63,6 +63,7 @@ export function NewSessionView(props: {
                       onDone={props.input.restoreFocus}
                     />
                   </Show>
+                  <PromptWikiButton onDone={props.input.restoreFocus} />
                 </div>
               </Show>
             </div>

@@ -39,6 +39,18 @@ OpenCode 本机集成 — 工作进展与后续事项
 【提交 bc87646】feat(desktop): stage OpenWiki bundle for packaging
 - prepare-openwiki.ts；predev/prebuild 挂钩；electron-builder 条件打包 resources/openwiki
 
+【提交 2b66a80】fix(desktop): stabilize OpenWiki staging and local Windows packaging
+- prepare-openwiki：copy 并排除 vendor_modules/openwiki，避免 ELOOP
+- OPENCODE_PRODUCT_NAME=OpenCodeDev（避免空格触发 resEdit UNKNOWN）
+
+【提交 742912d】feat(app): expose Wiki entry and fix OpenWiki dialog API calls
+- 新建会话项目栏增加可见 Wiki 按钮（旁路 QA / Git）
+- new-session 注册 slash `/wiki`（此前仅在已有会话页注册）
+- DialogOpenWiki：不再依赖 vendored client 的缺失 openwikis.*；改为对 sidecar
+  baseUrl + Basic 鉴权 + x-opencode-directory 直连 /api/openwiki/*
+  （修复「加载中 / Not found / 无法生成」）
+- i18n：en/zh/zht 补充 session.new.wiki、apiUnavailable、格式预设名
+
 三、本机验证（2026-08-11）
 ------------------------
 - bun install：遇 ghostty-web SSL 时可用 NODE_TLS_REJECT_UNAUTHORIZED=0 + depends/bun-cache
@@ -48,7 +60,8 @@ OpenCode 本机集成 — 工作进展与后续事项
 - 模型切换：--model opencode/gpt-5-nano 时 status.model 跟随
 - packages/{schema,protocol,core,server,client,tui,app} typecheck 通过（本机）
 - desktop prepare-openwiki：resources/openwiki staging OK
-- 未做：TUI/App GUI 完整手测；付费模型登录路径 E2E；安装包代码签名
+- 打包含 Wiki 按钮与对话框直连修复后，产物已刷新（见第五节）
+- 未做：付费模型登录路径 E2E；安装包代码签名；vendored @opencode-ai/client 升级到含 openwikis
 
 四、自定义 / 自部署模型影响（结论）
 --------------------------------
@@ -57,8 +70,8 @@ OpenCode 本机集成 — 工作进展与后续事项
 - 无 baseURL → provider-unsupported-for-openwiki；无 key → no-provider-login
 - 质量取决于模型能力（工具调用/上下文）；密钥仍只在父进程 gateway
 
-五、安装产物（本机 2026-08-11）
-------------------------------
+五、安装产物（本机 2026-08-11，含 Wiki UI 修复重打）
+------------------------------------------------
 打包环境：
   - MODELS_DEV_API_JSON=packages/opencode/test/tool/fixtures/models-api.json（models.dev 不可达）
   - bun install --force 修复残缺 @modelcontextprotocol/sdk / openai
@@ -67,7 +80,7 @@ OpenCode 本机集成 — 工作进展与后续事项
   - CSC_IDENTITY_AUTO_DISCOVERY=false（未做代码签名）
 
 产物：
-  depends/oc-dist/opencode-desktop-win-x64.exe   （NSIS 安装包）
+  depends/oc-dist/opencode-desktop-win-x64.exe   （NSIS 安装包，约 227 MB）
   depends/oc-dist/win-unpacked/OpenCodeDev.exe   （免安装目录）
   win-unpacked/resources/openwiki/               （含 vendor_modules，无循环 junction）
 
@@ -84,12 +97,13 @@ OpenCode 本机集成 — 工作进展与后续事项
 
 六、后续建议
 ------------
-1. 产品手测：bun dev（TUI）+ bun dev:web（App /wiki）走 generate/update/cancel/consent
+1. 产品手测：安装新包 → 选模型 → Wiki 按钮 / `/wiki` → generate/update/cancel/consent
 2. 付费模型：登录后非免费模型走 gateway，确认密钥不进子进程
 3. 与 origin/dev 同步（rebase/merge personal）
 4. 若提 PR：整理 commit 边界；补 Server HttpApi 集成测；非 zh 文案可 translate:app
 5. 安装包代码签名（需 CSC）；可选把 OPENCODE_PRODUCT_NAME 默认改为无空格
-6. 明确暂不做：OpenWiki personal/MCP/PostHog、官方 visualize、并进 Session V2、第二套模型登录 UI
+6. 升级 packages/app/vendor 的 @opencode-ai/client（或改 workspace）以原生暴露 openwikis.*
+7. 明确暂不做：OpenWiki personal/MCP/PostHog、官方 visualize、并进 Session V2、第二套模型登录 UI
 
 七、关键命令
 ------------

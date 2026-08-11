@@ -1,4 +1,5 @@
 import { For, Show } from "solid-js"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { MenuV2 } from "@opencode-ai/ui/v2/menu-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import { Icon } from "@opencode-ai/ui/icon"
@@ -124,5 +125,38 @@ export function PromptGitStatus(props: { branch?: string; noGit?: boolean }) {
         </>
       )}
     </Show>
+  )
+}
+
+export function PromptWikiButton(props: { onDone?: () => void }) {
+  const language = useLanguage()
+  const dialog = useDialog()
+
+  const open = () => {
+    void import("@/components/dialog-openwiki").then((mod) => {
+      dialog.show(() => <mod.DialogOpenWiki />)
+      props.onDone?.()
+    })
+  }
+
+  return (
+    <>
+      <span class="hidden select-none opacity-50 sm:inline mx-1">/</span>
+      <TooltipV2
+        placement="top"
+        value={language.t("command.wiki.open.description")}
+        class="min-w-0 max-w-[220px]"
+        contentClass="max-w-[calc(100vw-32px)]"
+      >
+        <button
+          type="button"
+          class="flex h-7 min-w-0 max-w-[220px] items-center gap-1.5 rounded-sm px-2 text-[13px] font-[440] leading-5 tracking-[-0.04px] hover:bg-v2-overlay-simple-overlay-hover focus-visible:bg-v2-overlay-simple-overlay-hover focus-visible:outline-none"
+          onClick={open}
+        >
+          <Icon name="bullet-list" size="small" class="shrink-0 text-v2-icon-icon-muted" />
+          <span class="min-w-0 truncate">{language.t("session.new.wiki")}</span>
+        </button>
+      </TooltipV2>
+    </>
   )
 }
