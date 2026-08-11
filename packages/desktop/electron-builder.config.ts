@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process"
+import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
@@ -63,6 +64,15 @@ const getBase = (appId: string): Configuration => ({
             from: "resources/",
             to: "",
             filter: ["opencode-cli*"],
+          },
+        ]
+      : []),
+    ...(fs.existsSync(path.join(packageDir, "resources", "openwiki", "package.json"))
+      ? [
+          {
+            from: "resources/openwiki",
+            to: "openwiki",
+            filter: ["**/*"],
           },
         ]
       : []),

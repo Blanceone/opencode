@@ -7,3 +7,4 @@ await $`bun ./scripts/copy-icons.ts ${process.env.OPENCODE_CHANNEL ?? "dev"}`
 
 await $`cd ../opencode && bun script/build-node.ts`
 await downloadCliToResources()
+await $`bun ./scripts/prepare-openwiki.ts`.nothrow()
