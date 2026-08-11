@@ -57,14 +57,30 @@ OpenCode 本机集成 — 工作进展与后续事项
 - 无 baseURL → provider-unsupported-for-openwiki；无 key → no-provider-login
 - 质量取决于模型能力（工具调用/上下文）；密钥仍只在父进程 gateway
 
-五、安装产物（待本机打包填写）
-----------------------------
-命令（Windows）：
+五、安装产物（本机 2026-08-11）
+------------------------------
+打包环境：
+  - MODELS_DEV_API_JSON=packages/opencode/test/tool/fixtures/models-api.json（models.dev 不可达）
+  - bun install --force 修复残缺 @modelcontextprotocol/sdk / openai
+  - OPENCODE_PRODUCT_NAME=OpenCodeDev（避免 “OpenCode Dev.exe” 空格触发 resEdit UNKNOWN）
+  - 输出目录：depends/oc-dist/（gitignored）
+  - CSC_IDENTITY_AUTO_DISCOVERY=false（未做代码签名）
+
+产物：
+  depends/oc-dist/opencode-desktop-win-x64.exe   （NSIS 安装包）
+  depends/oc-dist/win-unpacked/OpenCodeDev.exe   （免安装目录）
+  win-unpacked/resources/openwiki/               （含 vendor_modules，无循环 junction）
+
+打包修复：
+  - prepare-openwiki.ts：改为 copy 并排除 vendor_modules/openwiki，避免 ELOOP
+  - electron-builder.config.ts：dev 可用 OPENCODE_PRODUCT_NAME 覆盖产品名
+
+命令备忘：
   cd packages/desktop
-  bun run build
-  bun run package:win
-产物目录：packages/desktop/dist/
-  - opencode-desktop-win-*.exe / win-unpacked（含 resources/openwiki 若已 prepare）
+  bun run build   # 需 MODELS_DEV_API_JSON 或可达 models.dev
+  $env:OPENCODE_PRODUCT_NAME="OpenCodeDev"
+  $env:CSC_IDENTITY_AUTO_DISCOVERY="false"
+  bunx electron-builder --win --config electron-builder.config.ts --config.directories.output=D:\work\ai\opencode\depends\oc-dist
 
 六、后续建议
 ------------
@@ -72,7 +88,8 @@ OpenCode 本机集成 — 工作进展与后续事项
 2. 付费模型：登录后非免费模型走 gateway，确认密钥不进子进程
 3. 与 origin/dev 同步（rebase/merge personal）
 4. 若提 PR：整理 commit 边界；补 Server HttpApi 集成测；非 zh 文案可 translate:app
-5. 明确暂不做：OpenWiki personal/MCP/PostHog、官方 visualize、并进 Session V2、第二套模型登录 UI
+5. 安装包代码签名（需 CSC）；可选把 OPENCODE_PRODUCT_NAME 默认改为无空格
+6. 明确暂不做：OpenWiki personal/MCP/PostHog、官方 visualize、并进 Session V2、第二套模型登录 UI
 
 七、关键命令
 ------------

@@ -2,16 +2,21 @@
 /**
  * Stage OpenWiki bundle into desktop resources for packaging.
  * Source: repo depends/openwiki-bundle (gitignored). Destination: packages/desktop/resources/openwiki
+ *
+ * Important: do not junction vendor_modules to the whole hoisted node_modules —
+ * that includes `openwiki` itself and creates an infinite vendor_modules loop for electron-builder.
  */
 import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { spawnSync } from "node:child_process"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const desktopRoot = path.resolve(__dirname, "..")
 const repoRoot = path.resolve(desktopRoot, "../..")
 const version = process.env.OPENWIKI_VERSION || "0.3.1"
+const VENDOR_DIR = "vendor_modules"
+const REQUIRED = ["@anthropic-ai/vertex-sdk", "deepagents", "@langchain/core", "@langchain/openai"]
+
 const srcCandidates = [
   path.join(repoRoot, "depends", "openwiki-bundle", version, "node_modules", "openwiki"),
   path.join(repoRoot, "depends", "openwiki-bundle", version),
@@ -32,30 +37,31 @@ if (!src) {
 
 fs.rmSync(dest, { recursive: true, force: true })
 fs.mkdirSync(path.dirname(dest), { recursive: true })
+fs.cpSync(src, dest, { recursive: true, force: true })
 
-if (process.platform === "win32") {
-  // Prefer junction for large trees; fall back to copy.
-  const result = spawnSync("cmd.exe", ["/c", "mklink", "/J", dest, src], { windowsHide: true })
-  if (result.status !== 0 || !fs.existsSync(dest)) {
-    fs.cpSync(src, dest, { recursive: true })
+// Remove any stale nested vendor link copied from a previous broken stage.
+fs.rmSync(path.join(dest, VENDOR_DIR), { recursive: true, force: true })
+fs.rmSync(path.join(dest, "node_modules"), { recursive: true, force: true })
+
+const hoisted = path.basename(path.dirname(src)) === "node_modules" ? path.dirname(src) : null
+if (hoisted && fs.existsSync(path.join(hoisted, "@anthropic-ai", "vertex-sdk", "package.json"))) {
+  const vendorDest = path.join(dest, VENDOR_DIR)
+  fs.mkdirSync(vendorDest, { recursive: true })
+  for (const entry of fs.readdirSync(hoisted)) {
+    if (entry === "openwiki" || entry === ".bin" || entry === ".package-lock.json") continue
+    fs.cpSync(path.join(hoisted, entry), path.join(vendorDest, entry), { recursive: true, force: true })
   }
-} else {
-  fs.symlinkSync(src, dest, "dir")
+
+  const missing = REQUIRED.filter((name) => !fs.existsSync(path.join(vendorDest, ...name.split("/"), "package.json")))
+  if (missing.length > 0) {
+    console.warn(`[prepare-openwiki] vendor_modules missing: ${missing.join(", ")}`)
+  }
 }
 
-// Also stage hoisted deps when src is node_modules/openwiki
-const hoisted = path.join(src, "..")
-const vendorProbe = path.join(hoisted, "@anthropic-ai", "vertex-sdk", "package.json")
-if (fs.existsSync(vendorProbe)) {
-  const vendorDest = path.join(dest, "vendor_modules")
-  if (!fs.existsSync(vendorDest)) {
-    if (process.platform === "win32") {
-      spawnSync("cmd.exe", ["/c", "mklink", "/J", vendorDest, hoisted], { windowsHide: true })
-      if (!fs.existsSync(vendorDest)) fs.cpSync(hoisted, vendorDest, { recursive: true })
-    } else {
-      fs.symlinkSync(hoisted, vendorDest, "dir")
-    }
-  }
+const entry = path.join(dest, "dist", "agent", "index.js")
+if (!fs.existsSync(entry)) {
+  console.error(`[prepare-openwiki] agent entry missing after stage: ${entry}`)
+  process.exit(1)
 }
 
 console.log(`[prepare-openwiki] staged ${src} -> ${dest}`)
