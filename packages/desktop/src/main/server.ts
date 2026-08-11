@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { app, utilityProcess } from "electron"
@@ -216,6 +217,15 @@ function createSidecarEnv(): Record<string, string> {
   )
   delete env.DEBUG
   if (process.platform === "linux") delete env.LD_PRELOAD
+  // UtilityProcess may lack process.resourcesPath; pin OpenWiki paths for the sidecar.
+  if (app.isPackaged) {
+    const openwikiRoot = join(process.resourcesPath, "openwiki")
+    if (existsSync(join(openwikiRoot, "package.json"))) {
+      env.OPENWIKI_PACKAGE_ROOT = openwikiRoot
+      const worker = join(openwikiRoot, "worker.mjs")
+      if (existsSync(worker)) env.OPENWIKI_WORKER_PATH = worker
+    }
+  }
   return env
 }
 

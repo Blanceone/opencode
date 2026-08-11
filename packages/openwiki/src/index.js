@@ -65,17 +65,20 @@ export const getOpenWikiStatus = async (input) => {
     ? canUseOpenWikiGatewayModel({ directory, model })
     : false;
 
-  return {
-    enabled: input.openWikiEnabled !== false,
-    projectDirectory: directory,
-    wikiRoot: ownership.wikiRoot,
-    wikiExists: ownership.wikiExists,
-    ownership: ownership.ownership,
-    consentRequired: ownership.consentRequired,
-    foreignPaths: ownership.foreignPaths,
-    marker,
-    job,
-    model,
-    hasLogin,
-  };
+  // Drop undefined optional fields so Effect Schema encode/decode of Status succeeds.
+  return JSON.parse(
+    JSON.stringify({
+      enabled: input.openWikiEnabled !== false,
+      projectDirectory: directory,
+      wikiRoot: ownership.wikiRoot,
+      wikiExists: ownership.wikiExists,
+      ownership: ownership.ownership,
+      consentRequired: ownership.consentRequired,
+      foreignPaths: ownership.foreignPaths,
+      marker,
+      job,
+      model,
+      hasLogin,
+    }),
+  );
 };

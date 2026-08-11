@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
-import { resolveOpenWikiNodeBinary, resolveOpenWikiWorkerLaunch } from './worker-runtime.js';
+import {
+  resolveOpenWikiNodeBinary,
+  resolveOpenWikiWorkerLaunch,
+  resolveOpenWikiWorkerPath,
+} from './worker-runtime.js';
 
 describe('worker-runtime', () => {
   test('resolves a real Node binary on this machine', () => {
@@ -37,5 +43,63 @@ describe('worker-runtime', () => {
       versions: {},
     });
     expect(launch.binary).toBe(node);
+  });
+
+  test('resolves worker next to the module in source checkouts', () => {
+    const worker = resolveOpenWikiWorkerPath();
+    expect(fs.existsSync(worker)).toBe(true);
+    expect(path.basename(worker)).toBe('worker.mjs');
+  });
+
+  test('uses OPENWIKI_WORKER_PATH when set', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openwiki-worker-'));
+    const forced = path.join(dir, 'custom-worker.mjs');
+    fs.writeFileSync(forced, '// test\n');
+    try {
+      const resolved = resolveOpenWikiWorkerPath({
+        env: { OPENWIKI_WORKER_PATH: forced },
+        moduleDir: path.join(dir, 'missing'),
+        resourcesPath: path.join(dir, 'resources-missing'),
+      });
+      expect(resolved).toBe(path.resolve(forced));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('falls back to resources/openwiki/worker.mjs for packaged layouts', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openwiki-resources-'));
+    const packaged = path.join(dir, 'openwiki', 'worker.mjs');
+    fs.mkdirSync(path.dirname(packaged), { recursive: true });
+    fs.writeFileSync(packaged, '// packaged\n');
+    try {
+      const resolved = resolveOpenWikiWorkerPath({
+        env: { OPENWIKI_WORKER_PATH: '' },
+        moduleDir: path.join(dir, 'asar', 'chunks'),
+        resourcesPath: dir,
+      });
+      expect(resolved).toBe(packaged);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('uses OPENWIKI_PACKAGE_ROOT/worker.mjs when module dir is asar-bundled', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openwiki-package-root-'));
+    const worker = path.join(dir, 'worker.mjs');
+    fs.writeFileSync(worker, '// package root\n');
+    try {
+      const resolved = resolveOpenWikiWorkerPath({
+        env: {
+          OPENWIKI_WORKER_PATH: '',
+          OPENWIKI_PACKAGE_ROOT: dir,
+        },
+        moduleDir: path.join(dir, 'asar', 'chunks'),
+        resourcesPath: path.join(dir, 'resources-missing'),
+      });
+      expect(resolved).toBe(worker);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

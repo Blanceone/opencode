@@ -2,7 +2,6 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createWikiBind, removeWikiBind } from './bind.js';
 import { buildFormatUserMessage, ensureFormatSeeded, readFormatBundle } from './format.js';
 import { OPENWIKI_DOCUMENT_LANGUAGE } from './language.js';
@@ -26,10 +25,7 @@ import {
 import { writeMarker } from './marker.js';
 import { getWikiRoot } from './paths.js';
 import { ensureWikiReference } from './references.js';
-import { resolveOpenWikiWorkerLaunch } from './worker-runtime.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const WORKER_PATH = path.join(__dirname, 'worker.mjs');
+import { resolveOpenWikiWorkerLaunch, resolveOpenWikiWorkerPath } from './worker-runtime.js';
 
 /** Strip provider secrets from the inherited parent env before spawning OpenWiki. */
 const CHILD_ENV_SCRUB_KEYS = [
@@ -236,7 +232,7 @@ const runJob = async ({ directory, command, model, language, userMessage }) => {
     const { nodeModules: packageModules } = ensureOpenWikiDependencyModules(packageRoot);
     const agentEntry = resolveOpenWikiAgentEntry(packageRoot);
 
-    const launch = resolveOpenWikiWorkerLaunch(WORKER_PATH);
+    const launch = resolveOpenWikiWorkerLaunch(resolveOpenWikiWorkerPath());
     const childEnv = {
       ...buildChildProcessEnv(bridged.env, packageModules),
       ...launch.envExtras,

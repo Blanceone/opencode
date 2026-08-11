@@ -47,6 +47,13 @@ const wrap = <A>(promise: Promise<A>) =>
       }),
   })
 
+/** Adapter returns plain JSON; HttpApi encode requires Schema.Class instances. */
+const asJson = (raw: unknown) => JSON.parse(JSON.stringify(raw)) as unknown
+const decodeStatus = (raw: unknown) => Schema.decodeUnknownSync(Status)(asJson(raw))
+const decodeJob = (raw: unknown) => Schema.decodeUnknownSync(Job)(asJson(raw))
+const decodeFormat = (raw: unknown) => Schema.decodeUnknownSync(FormatBundle)(asJson(raw))
+const decodeJobOrNull = (raw: unknown) => (raw == null ? null : decodeJob(raw))
+
 export interface Interface {
   readonly status: (input?: {
     model?: unknown
@@ -77,10 +84,10 @@ const layer = Layer.effect(
             directory: directory(),
             model: input?.model,
             openWikiModelOverride: input?.openWikiModelOverride,
-          }),
-        ) as Effect.Effect<Status, Error>,
-      formatGet: () => wrap(readFormatBundle(directory())) as Effect.Effect<FormatBundle, Error>,
-      formatPut: (input) => wrap(writeFormatBundle(directory(), input)) as Effect.Effect<FormatBundle, Error>,
+          }).then(decodeStatus),
+        ),
+      formatGet: () => wrap(readFormatBundle(directory()).then(decodeFormat)),
+      formatPut: (input) => wrap(writeFormatBundle(directory(), input).then(decodeFormat)),
       formatPresets: () =>
         Effect.succeed(
           FORMAT_PRESET_IDS.map((id) => {
@@ -97,8 +104,10 @@ const layer = Layer.effect(
           applyConsentIfNeeded(directory(), {
             consent: input.consent,
             consentAction: input.consentAction,
-          }).then(() => getOpenWikiStatus({ directory: directory() })),
-        ) as Effect.Effect<Status, Error>,
+          })
+            .then(() => getOpenWikiStatus({ directory: directory() }))
+            .then(decodeStatus),
+        ),
       generate: (input) =>
         wrap(
           startOpenWikiJob({
@@ -109,8 +118,8 @@ const layer = Layer.effect(
             consent: input.consent,
             consentAction: input.consentAction,
             openWikiModelOverride: input.openWikiModelOverride,
-          }),
-        ) as Effect.Effect<Job, Error>,
+          }).then(decodeJob),
+        ),
       update: (input) =>
         wrap(
           startOpenWikiJob({
@@ -120,10 +129,10 @@ const layer = Layer.effect(
             consent: input.consent,
             consentAction: input.consentAction,
             openWikiModelOverride: input.openWikiModelOverride,
-          }),
-        ) as Effect.Effect<Job, Error>,
-      job: () => Effect.sync(() => getJob(directory()) as Job | null),
-      cancel: () => wrap(cancelOpenWikiJob(directory())) as Effect.Effect<Job | null, Error>,
+          }).then(decodeJob),
+        ),
+      job: () => Effect.sync(() => decodeJobOrNull(getJob(directory()))),
+      cancel: () => wrap(cancelOpenWikiJob(directory()).then(decodeJobOrNull)),
     })
   }),
 )

@@ -64,4 +64,14 @@ if (!fs.existsSync(entry)) {
   process.exit(1)
 }
 
+// Adapter worker must ship outside app.asar — runner is bundled into Electron chunks.
+const workerSrc = path.join(repoRoot, "packages", "openwiki", "src", "worker.mjs")
+const workerDest = path.join(dest, "worker.mjs")
+if (!fs.existsSync(workerSrc)) {
+  console.error(`[prepare-openwiki] adapter worker missing: ${workerSrc}`)
+  process.exit(1)
+}
+fs.cpSync(workerSrc, workerDest, { force: true })
+
 console.log(`[prepare-openwiki] staged ${src} -> ${dest}`)
+console.log(`[prepare-openwiki] staged worker ${workerSrc} -> ${workerDest}`)

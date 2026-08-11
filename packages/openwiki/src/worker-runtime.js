@@ -1,8 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const DEFAULT_BUILDER_TOOLS = process.env.OPENCODE_BUILDER_TOOLS || 'D:\\work\\ai\\builder_tools';
+const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 const looksLikeBun = (execPath) => {
   const base = path.basename(execPath || '').toLowerCase();
@@ -49,6 +51,59 @@ export const resolveOpenWikiNodeBinary = (env = process.env) => {
   }
 
   return null;
+};
+
+/**
+ * Resolve the adapter worker entry. Packaged Electron bundles runner.js into
+ * app.asar chunks, so `__dirname/worker.mjs` does not exist — use
+ * `resources/openwiki/worker.mjs` (staged by prepare-openwiki) instead.
+ *
+ * @param {{
+ *   env?: NodeJS.ProcessEnv,
+ *   resourcesPath?: string,
+ *   moduleDir?: string,
+ * }} [options]
+ */
+export const resolveOpenWikiWorkerPath = (options = {}) => {
+  const env = options.env || process.env;
+  if (typeof env.OPENWIKI_WORKER_PATH === 'string' && env.OPENWIKI_WORKER_PATH) {
+    const forced = path.resolve(env.OPENWIKI_WORKER_PATH);
+    if (fs.existsSync(forced)) return forced;
+  }
+
+  const moduleDir = options.moduleDir || HERE;
+  const nextToModule = path.join(moduleDir, 'worker.mjs');
+  if (fs.existsSync(nextToModule)) return nextToModule;
+
+  if (typeof env.OPENWIKI_PACKAGE_ROOT === 'string' && env.OPENWIKI_PACKAGE_ROOT) {
+    const fromPackage = path.join(path.resolve(env.OPENWIKI_PACKAGE_ROOT), 'worker.mjs');
+    if (fs.existsSync(fromPackage)) return fromPackage;
+  }
+
+  const resourcesPath =
+    options.resourcesPath ||
+    (typeof process.resourcesPath === 'string' ? process.resourcesPath : undefined);
+  if (resourcesPath) {
+    const packaged = path.join(resourcesPath, 'openwiki', 'worker.mjs');
+    if (fs.existsSync(packaged)) return packaged;
+  }
+
+  // Dev / monorepo: packages/openwiki/src/worker.mjs when this file is bundled elsewhere
+  let dir = moduleDir;
+  for (let i = 0; i < 8; i += 1) {
+    const candidate = path.join(dir, 'packages', 'openwiki', 'src', 'worker.mjs');
+    if (fs.existsSync(candidate)) return candidate;
+    const sibling = path.join(dir, 'src', 'worker.mjs');
+    if (path.basename(dir) === 'openwiki' && fs.existsSync(sibling)) return sibling;
+    dir = path.dirname(dir);
+  }
+
+  throw Object.assign(
+    new Error(
+      'OpenWiki worker.mjs is missing. Re-run desktop prepare-openwiki (stages resources/openwiki/worker.mjs) or set OPENWIKI_WORKER_PATH.',
+    ),
+    { statusCode: 500, code: 'openwiki-worker-missing' },
+  );
 };
 
 /**

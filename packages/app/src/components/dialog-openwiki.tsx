@@ -1,6 +1,7 @@
-import { Component, For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js"
+import { Component, For, Show, createEffect, createMemo, createSignal, onCleanup, onMount } from "solid-js"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { Button } from "@opencode-ai/ui/button"
+import { Spinner } from "@opencode-ai/ui/spinner"
 import { useSDK } from "@/context/sdk"
 import { useLocal } from "@/context/local"
 import { useLanguage } from "@/context/language"
@@ -9,6 +10,7 @@ import { useServerSDK } from "@/context/server-sdk"
 import { authTokenFromCredentials } from "@/utils/server"
 
 type WikiStatus = {
+  projectDirectory?: string
   wikiExists: boolean
   ownership: string
   consentRequired: boolean
@@ -54,6 +56,13 @@ function parseErrorBody(text: string, fallback: string) {
   }
 }
 
+function isDriveRoot(directory: string) {
+  const trimmed = directory.trim()
+  if (!trimmed) return false
+  if (trimmed === "/" || trimmed === "\\") return true
+  return /^[A-Za-z]:[\\/]?$/.test(trimmed)
+}
+
 export const DialogOpenWiki: Component = () => {
   const sdk = useSDK()
   const local = useLocal()
@@ -65,9 +74,12 @@ export const DialogOpenWiki: Component = () => {
   const [presets, setPresets] = createSignal<FormatPreset[]>([])
   const [error, setError] = createSignal<string | null>(null)
   const [busy, setBusy] = createSignal(false)
+  const [activeAction, setActiveAction] = createSignal<"generate" | "update" | null>(null)
   const [showFormat, setShowFormat] = createSignal(false)
 
   const directory = () => sdk().directory
+
+  const workspacePath = createMemo(() => status()?.projectDirectory || directory())
 
   const modelRef = createMemo(() => {
     const model = local.model.current()
@@ -87,6 +99,28 @@ export const DialogOpenWiki: Component = () => {
     const stage = status()?.job?.stage
     return !!stage && ACTIVE_STAGES.has(stage)
   })
+
+  const working = createMemo(() => busy() || jobActive())
+
+  const ownershipLabel = (ownership: string) => {
+    if (ownership === "absent") return language.t("dialog.openwiki.ownership.absent")
+    if (ownership === "opencode-managed") return language.t("dialog.openwiki.ownership.opencode-managed")
+    if (ownership === "foreign") return language.t("dialog.openwiki.ownership.foreign")
+    if (ownership === "conflict") return language.t("dialog.openwiki.ownership.conflict")
+    return ownership
+  }
+
+  const jobStageLabel = (stage: string) => {
+    if (stage === "queued") return language.t("dialog.openwiki.job.queued")
+    if (stage === "preparing") return language.t("dialog.openwiki.job.preparing")
+    if (stage === "mapping-model") return language.t("dialog.openwiki.job.mapping-model")
+    if (stage === "running") return language.t("dialog.openwiki.job.running")
+    if (stage === "writing") return language.t("dialog.openwiki.job.writing")
+    if (stage === "completed") return language.t("dialog.openwiki.job.completed")
+    if (stage === "failed") return language.t("dialog.openwiki.job.failed")
+    if (stage === "cancelled") return language.t("dialog.openwiki.job.cancelled")
+    return stage
+  }
 
   const openwikiFetch = async <T,>(path: string, init?: RequestInit): Promise<T> => {
     const server = serverSDK().server.http
@@ -130,7 +164,11 @@ export const DialogOpenWiki: Component = () => {
     }
     if (jobError.code === "model-required") return language.t("dialog.openwiki.error.modelRequired")
     if (jobError.code === "wiki-consent-required") return language.t("dialog.openwiki.error.consentRequired")
-    return jobError.message || null
+    if (!jobError.message) return null
+    // Node/Electron stack dumps are huge; keep the actionable Error line for the dialog.
+    const firstError = jobError.message.match(/(?:^|\n)Error: ([^\r\n]+)/)
+    if (firstError?.[1]) return firstError[1].trim()
+    return jobError.message.length > 400 ? `${jobError.message.slice(0, 400)}…` : jobError.message
   }
 
   const formatCaughtError = (e: unknown) => {
@@ -165,8 +203,24 @@ export const DialogOpenWiki: Component = () => {
   }
 
   const run = async (command: "generate" | "update" | "cancel") => {
+    if (command !== "cancel" && working()) return
     setBusy(true)
     setError(null)
+    if (command === "generate" || command === "update") {
+      setActiveAction(command)
+      setStatus((prev) =>
+        prev
+          ? {
+              ...prev,
+              job: {
+                stage: "queued",
+                detail: undefined,
+                error: undefined,
+              },
+            }
+          : prev,
+      )
+    }
     try {
       const selected = modelRef()
       if (command === "cancel") {
@@ -180,8 +234,10 @@ export const DialogOpenWiki: Component = () => {
       await refresh()
     } catch (e) {
       setError(formatCaughtError(e))
+      await refresh()
     } finally {
       setBusy(false)
+      if (!ACTIVE_STAGES.has(status()?.job?.stage || "")) setActiveAction(null)
     }
   }
 
@@ -225,7 +281,15 @@ export const DialogOpenWiki: Component = () => {
 
   onMount(() => {
     void refresh()
-    const timer = setInterval(() => void refresh(), jobActive() ? 1200 : 2500)
+  })
+
+  createEffect(() => {
+    if (!working()) setActiveAction(null)
+  })
+
+  createEffect(() => {
+    const ms = jobActive() ? 1000 : 2500
+    const timer = setInterval(() => void refresh(), ms)
     onCleanup(() => clearInterval(timer))
   })
 
@@ -240,26 +304,40 @@ export const DialogOpenWiki: Component = () => {
           {(s) => (
             <div class="flex flex-col gap-1 text-12-regular">
               <div>
-                {language.t("dialog.openwiki.root")}: <span class="text-text-weaker">{s().wikiRoot}</span>
+                {language.t("dialog.openwiki.workspace")}:{" "}
+                <span class="text-text-weaker break-all">{workspacePath()}</span>
               </div>
+              <div>
+                {language.t("dialog.openwiki.wikiPath")}:{" "}
+                <span class="text-text-weaker break-all">{s().wikiRoot}</span>
+              </div>
+              <Show when={isDriveRoot(workspacePath())}>
+                <div class="text-11-regular text-text-danger">{language.t("dialog.openwiki.driveRootWarning")}</div>
+              </Show>
               <div>
                 {language.t("dialog.openwiki.model")}: <span class="text-text-weaker">{modelLabel()}</span>
               </div>
-              <div>
+              <div title={language.t("dialog.openwiki.exists.hint")}>
                 {language.t("dialog.openwiki.exists")}:{" "}
-                {s().wikiExists ? language.t("dialog.openwiki.yes") : language.t("dialog.openwiki.no")} ·{" "}
-                {language.t("dialog.openwiki.ownership")}: {s().ownership}
+                {s().wikiExists ? language.t("dialog.openwiki.exists.yes") : language.t("dialog.openwiki.exists.no")}
+              </div>
+              <div title={language.t("dialog.openwiki.ownership.hint")}>
+                {language.t("dialog.openwiki.ownership")}: {ownershipLabel(s().ownership)}
               </div>
               <div>
                 {language.t("dialog.openwiki.login")}:{" "}
                 {s().hasLogin ? language.t("dialog.openwiki.yes") : language.t("dialog.openwiki.no")}
               </div>
-              <Show when={s().job}>
-                <div>
-                  {language.t("dialog.openwiki.job")}: {s().job!.stage}
-                  <Show when={s().job!.detail}> — {s().job!.detail}</Show>
-                </div>
-              </Show>
+              <div class="flex items-center gap-2">
+                <span>
+                  {language.t("dialog.openwiki.job")}:{" "}
+                  {s().job ? jobStageLabel(s().job!.stage) : language.t("dialog.openwiki.job.idle")}
+                  <Show when={s().job?.detail}> — {s().job!.detail}</Show>
+                </span>
+                <Show when={jobActive()}>
+                  <Spinner class="size-3.5 shrink-0 text-text-weaker" />
+                </Show>
+              </div>
               <Show when={formatFailure(s().job?.error) || s().job?.error?.message}>
                 <div class="text-text-danger">{formatFailure(s().job?.error) || s().job!.error!.message}</div>
               </Show>
@@ -276,10 +354,10 @@ export const DialogOpenWiki: Component = () => {
               </div>
             </Show>
             <div class="flex flex-wrap gap-2">
-              <Button size="small" disabled={busy()} onClick={() => void consent("adopt")}>
+              <Button size="small" disabled={working()} onClick={() => void consent("adopt")}>
                 {language.t("dialog.openwiki.consent.adopt")}
               </Button>
-              <Button size="small" variant="ghost" disabled={busy()} onClick={() => void consent("backup-rebuild")}>
+              <Button size="small" variant="ghost" disabled={working()} onClick={() => void consent("backup-rebuild")}>
                 {language.t("dialog.openwiki.consent.backupRebuild")}
               </Button>
             </div>
@@ -293,18 +371,33 @@ export const DialogOpenWiki: Component = () => {
         <div class="flex flex-wrap gap-2">
           <Button
             size="small"
-            disabled={busy() || !!status()?.consentRequired || status()?.hasLogin === false}
+            disabled={
+              working() ||
+              !!status()?.consentRequired ||
+              status()?.hasLogin === false ||
+              isDriveRoot(workspacePath())
+            }
             onClick={() => void run("generate")}
           >
-            {language.t("dialog.openwiki.action.generate")}
+            <Show when={activeAction() === "generate"} fallback={language.t("dialog.openwiki.action.generate")}>
+              <span class="inline-flex items-center gap-1.5">
+                <Spinner class="size-3" />
+                {language.t("dialog.openwiki.action.generating")}
+              </span>
+            </Show>
           </Button>
           <Button
             size="small"
             variant="ghost"
-            disabled={busy() || !!status()?.consentRequired || !status()?.wikiExists}
+            disabled={working() || !!status()?.consentRequired || !status()?.wikiExists}
             onClick={() => void run("update")}
           >
-            {language.t("dialog.openwiki.action.update")}
+            <Show when={activeAction() === "update"} fallback={language.t("dialog.openwiki.action.update")}>
+              <span class="inline-flex items-center gap-1.5">
+                <Spinner class="size-3" />
+                {language.t("dialog.openwiki.action.updating")}
+              </span>
+            </Show>
           </Button>
           <Button size="small" variant="ghost" disabled={busy() || !jobActive()} onClick={() => void run("cancel")}>
             {language.t("common.cancel")}
