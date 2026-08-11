@@ -311,6 +311,13 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
     )
   }
 
+  const chooseWiki = () => {
+    void openDialog(
+      () => import("@/components/dialog-openwiki"),
+      (x) => dialog.show(() => <x.DialogOpenWiki />),
+    )
+  }
+
   const toggleAutoAccept = () => {
     const sessionID = params.id
     if (sessionID) permission.toggleAutoAccept(sessionID, sdk().directory)
@@ -619,6 +626,16 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
     }),
   ]
 
+  const wikiCmds = () => [
+    sessionCommand({
+      id: "wiki.open",
+      title: language.t("command.wiki.open"),
+      description: language.t("command.wiki.open.description"),
+      slash: "wiki",
+      onSelect: chooseWiki,
+    }),
+  ]
+
   const permissionsCmds = () => [
     permissionsCommand({
       id: "permissions.autoaccept",
@@ -640,6 +657,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
     ...terminalCmds(),
     ...messageCmds(),
     ...mcpCmds(),
+    ...wikiCmds(),
     ...permissionsCmds(),
   ])
 }
