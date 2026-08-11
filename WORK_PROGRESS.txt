@@ -26,12 +26,13 @@ OpenCode 本机集成 — 工作进展与后续事项
 【提交 43ed494】feat(app): expose Wiki entry and fix OpenWiki dialog API calls
 【提交 c2f46f0】docs: correct OpenWiki work log commit hash
 
-【本轮待提交】fix(openwiki): Status encode + worker path + dialog UX
+【提交 aaeec29】fix(openwiki): repair Status encode, worker packaging, and dialog UX
 - core：adapter 普通对象 → Schema.decodeUnknown（Status/Job/FormatBundle）再交给 HttpApi
 - openwiki：resolveOpenWikiWorkerPath（OPENWIKI_WORKER_PATH / PACKAGE_ROOT / resources）
 - desktop：prepare 拷贝 worker.mjs；sidecar 注入 OPENWIKI_PACKAGE_ROOT / WORKER_PATH
 - dialog：工作区/Wiki 路径分列、归属文案、任务阶段+Spinner、生成中禁用、盘符根警告
 - schema：openwiki-status 编解码单测；i18n 全 locale 补键（en+zh 实译）
+- 工作日志：写入审查结论与 F0–F4 / N1–N4 计划
 
 三、本机验证
 ------------
