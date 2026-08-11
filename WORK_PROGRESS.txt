@@ -43,7 +43,7 @@ OpenCode 本机集成 — 工作进展与后续事项
 - prepare-openwiki：copy 并排除 vendor_modules/openwiki，避免 ELOOP
 - OPENCODE_PRODUCT_NAME=OpenCodeDev（避免空格触发 resEdit UNKNOWN）
 
-【提交 742912d】feat(app): expose Wiki entry and fix OpenWiki dialog API calls
+【提交 43ed494】feat(app): expose Wiki entry and fix OpenWiki dialog API calls
 - 新建会话项目栏增加可见 Wiki 按钮（旁路 QA / Git）
 - new-session 注册 slash `/wiki`（此前仅在已有会话页注册）
 - DialogOpenWiki：不再依赖 vendored client 的缺失 openwikis.*；改为对 sidecar
