@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@opencode-ai/openwiki",
+  "version": "0.0.0",
+  "description": "OpenWiki adapter for OpenCode (code-mode wiki under .wiki/)",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "openwiki": "bun run src/cli.ts",
+    "prepare:openwiki": "node ./script/prepare-openwiki.mjs",
+    "typecheck": "echo 'openwiki adapter is JS for M1; skip'",
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@tsconfig/bun": "catalog:"
+  }
+}

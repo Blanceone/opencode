@@ -32,3 +32,14 @@ UPCOMING_CHANGELOG.md
 logs/
 *.bun-build
 tsconfig.tsbuildinfo
+
+# Local dependency caches / tarballs (never upload)
+/depends/
+
+# Generated OpenWiki artifacts (local projects may create these)
+.wiki/
+/openwiki
+
+# Staged OpenWiki desktop resources (from depends/, never upload)
+/packages/desktop/resources/openwiki/
+
