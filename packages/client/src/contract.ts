@@ -34,6 +34,7 @@ export const groupNames = {
   "server.pty": "ptys",
   "server.question": "questions",
   "server.reference": "references",
+  "server.openwiki": "openwikis",
   "server.projectCopy": "projectCopies",
 } as const
 
@@ -48,6 +49,9 @@ export const endpointNames = {
   "permission.saved.list": "listSaved",
   "permission.saved.remove": "removeSaved",
   "question.request.list": "listRequests",
+  "openwiki.format.get": "formatGet",
+  "openwiki.format.put": "formatPut",
+  "openwiki.format.presets": "formatPresets",
 } as const
 
 export const omitEndpoints = new Set(["fs.read", "pty.connect", "pty.connectToken"])

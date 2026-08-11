@@ -13,6 +13,7 @@ import { HealthHandler } from "./handlers/health"
 import { PtyHandler } from "./handlers/pty"
 import { QuestionHandler } from "./handlers/question"
 import { ReferenceHandler } from "./handlers/reference"
+import { OpenWikiHandler } from "./handlers/openwiki"
 import { LocationHandler } from "./handlers/location"
 import { IntegrationHandler } from "./handlers/integration"
 import { CredentialHandler } from "./handlers/credential"
@@ -36,5 +37,6 @@ export const handlers = Layer.mergeAll(
   PtyHandler,
   QuestionHandler,
   ReferenceHandler,
+  OpenWikiHandler,
   ProjectCopyHandler,
 )

@@ -106,6 +106,24 @@ import type {
   QuestionsRejectOutput,
   ReferencesListInput,
   ReferencesListOutput,
+  OpenwikisStatusInput,
+  OpenwikisStatusOutput,
+  OpenwikisFormatGetInput,
+  OpenwikisFormatGetOutput,
+  OpenwikisFormatPutInput,
+  OpenwikisFormatPutOutput,
+  OpenwikisFormatPresetsInput,
+  OpenwikisFormatPresetsOutput,
+  OpenwikisConsentInput,
+  OpenwikisConsentOutput,
+  OpenwikisGenerateInput,
+  OpenwikisGenerateOutput,
+  OpenwikisUpdateInput,
+  OpenwikisUpdateOutput,
+  OpenwikisJobInput,
+  OpenwikisJobOutput,
+  OpenwikisCancelInput,
+  OpenwikisCancelOutput,
   ProjectCopiesCreateInput,
   ProjectCopiesCreateOutput,
   ProjectCopiesRemoveInput,
@@ -942,6 +960,139 @@ export function make(options: ClientOptions) {
             query: { location: input?.["location"] },
             successStatus: 200,
             declaredStatuses: [401, 400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+    },
+    openwikis: {
+      status: (input?: OpenwikisStatusInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisStatusOutput>(
+          {
+            method: "GET",
+            path: `/api/openwiki/status`,
+            query: {
+              location: input?.["location"],
+              model: input?.["model"],
+              openWikiModelOverride: input?.["openWikiModelOverride"],
+            },
+            successStatus: 200,
+            declaredStatuses: [400, 401],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      formatGet: (input?: OpenwikisFormatGetInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisFormatGetOutput>(
+          {
+            method: "GET",
+            path: `/api/openwiki/format`,
+            query: { location: input?.["location"] },
+            successStatus: 200,
+            declaredStatuses: [400, 401],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      formatPut: (input?: OpenwikisFormatPutInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisFormatPutOutput>(
+          {
+            method: "PUT",
+            path: `/api/openwiki/format`,
+            query: { location: input?.["location"] },
+            body: {
+              presetId: input?.["presetId"],
+              instructions: input?.["instructions"],
+              format: input?.["format"],
+              applyPreset: input?.["applyPreset"],
+            },
+            successStatus: 200,
+            declaredStatuses: [400, 401],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      formatPresets: (input?: OpenwikisFormatPresetsInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisFormatPresetsOutput>(
+          {
+            method: "GET",
+            path: `/api/openwiki/format/presets`,
+            query: { location: input?.["location"] },
+            successStatus: 200,
+            declaredStatuses: [401, 400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      consent: (input: OpenwikisConsentInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisConsentOutput>(
+          {
+            method: "POST",
+            path: `/api/openwiki/consent`,
+            query: { location: input["location"] },
+            body: { consent: input["consent"], consentAction: input["consentAction"] },
+            successStatus: 200,
+            declaredStatuses: [400, 401],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      generate: (input?: OpenwikisGenerateInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisGenerateOutput>(
+          {
+            method: "POST",
+            path: `/api/openwiki/generate`,
+            query: { location: input?.["location"] },
+            body: {
+              model: input?.["model"],
+              consent: input?.["consent"],
+              consentAction: input?.["consentAction"],
+              openWikiModelOverride: input?.["openWikiModelOverride"],
+            },
+            successStatus: 200,
+            declaredStatuses: [400, 401],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      update: (input?: OpenwikisUpdateInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisUpdateOutput>(
+          {
+            method: "POST",
+            path: `/api/openwiki/update`,
+            query: { location: input?.["location"] },
+            body: {
+              model: input?.["model"],
+              consent: input?.["consent"],
+              consentAction: input?.["consentAction"],
+              openWikiModelOverride: input?.["openWikiModelOverride"],
+            },
+            successStatus: 200,
+            declaredStatuses: [400, 401],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      job: (input?: OpenwikisJobInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisJobOutput>(
+          {
+            method: "GET",
+            path: `/api/openwiki/job`,
+            query: { location: input?.["location"] },
+            successStatus: 200,
+            declaredStatuses: [401, 400],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      cancel: (input?: OpenwikisCancelInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisCancelOutput>(
+          {
+            method: "POST",
+            path: `/api/openwiki/cancel`,
+            query: { location: input?.["location"] },
+            successStatus: 200,
+            declaredStatuses: [400, 401],
             empty: false,
           },
           requestOptions,

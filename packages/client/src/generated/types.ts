@@ -94,6 +94,13 @@ export type QuestionNotFoundError = {
 export const isQuestionNotFoundError = (value: unknown): value is QuestionNotFoundError =>
   typeof value === "object" && value !== null && "_tag" in value && value["_tag"] === "QuestionNotFoundError"
 
+export type OpenWikiError = {
+  readonly name: "OpenWikiError"
+  readonly data: { readonly message: string; readonly code?: string | undefined }
+}
+export const isOpenWikiError = (value: unknown): value is OpenWikiError =>
+  typeof value === "object" && value !== null && "name" in value && value["name"] === "OpenWikiError"
+
 export type ProjectCopyError = {
   readonly name: "ProjectCopyError"
   readonly data: { readonly message: string; readonly forceRequired?: boolean | undefined }
@@ -2772,6 +2779,422 @@ export type ReferencesListOutput = {
           readonly hidden?: boolean
         }
   }>
+}
+
+export type OpenwikisStatusInput = {
+  readonly location?: {
+    readonly location?: { readonly directory?: string | undefined; readonly workspace?: string | undefined } | undefined
+    readonly model?: string | undefined
+    readonly openWikiModelOverride?: string | undefined
+  }["location"]
+  readonly model?: {
+    readonly location?: { readonly directory?: string | undefined; readonly workspace?: string | undefined } | undefined
+    readonly model?: string | undefined
+    readonly openWikiModelOverride?: string | undefined
+  }["model"]
+  readonly openWikiModelOverride?: {
+    readonly location?: { readonly directory?: string | undefined; readonly workspace?: string | undefined } | undefined
+    readonly model?: string | undefined
+    readonly openWikiModelOverride?: string | undefined
+  }["openWikiModelOverride"]
+}
+
+export type OpenwikisStatusOutput = {
+  readonly location: {
+    readonly directory: string
+    readonly workspaceID?: string
+    readonly project: { readonly id: string; readonly directory: string }
+  }
+  readonly data: {
+    readonly enabled: boolean
+    readonly projectDirectory: string
+    readonly wikiRoot: string
+    readonly wikiExists: boolean
+    readonly ownership: "absent" | "opencode-managed" | "foreign" | "conflict"
+    readonly consentRequired: boolean
+    readonly foreignPaths: ReadonlyArray<string>
+    readonly marker: {
+      readonly version: number | "Infinity" | "-Infinity" | "NaN"
+      readonly managedBy: "opencode"
+      readonly createdAt: string
+      readonly updatedAt: string
+      readonly formatPresetId?: string
+      readonly consentedAt?: string
+      readonly consentAction?: "adopt" | "backup-rebuild"
+      readonly backupPath?: string
+    } | null
+    readonly job: {
+      readonly id: string
+      readonly directory: string
+      readonly mode: "code"
+      readonly command: "init" | "update"
+      readonly stage:
+        | "queued"
+        | "preparing"
+        | "mapping-model"
+        | "running"
+        | "writing"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      readonly model: { readonly providerID: string; readonly modelID: string }
+      readonly mappedProvider?: string
+      readonly startedAt: number | "Infinity" | "-Infinity" | "NaN"
+      readonly updatedAt: number | "Infinity" | "-Infinity" | "NaN"
+      readonly detail?: string
+      readonly error?: { readonly code: string; readonly message: string; readonly providerID?: string }
+      readonly cancelRequested?: boolean
+      readonly childPid?: number | "Infinity" | "-Infinity" | "NaN"
+    } | null
+    readonly model: { readonly providerID: string; readonly modelID: string } | null
+    readonly hasLogin: boolean
+  }
+}
+
+export type OpenwikisFormatGetInput = {
+  readonly location?: {
+    readonly location?: { readonly directory?: string | undefined; readonly workspace?: string | undefined } | undefined
+  }["location"]
+}
+
+export type OpenwikisFormatGetOutput = {
+  readonly location: {
+    readonly directory: string
+    readonly workspaceID?: string
+    readonly project: { readonly id: string; readonly directory: string }
+  }
+  readonly data: {
+    readonly presetId: "openwiki-default" | "architecture-module" | "api-service" | "custom"
+    readonly instructions: string
+    readonly format: string
+    readonly instructionsPath: string
+    readonly formatPath: string
+    readonly wikiRoot: string
+  }
+}
+
+export type OpenwikisFormatPutInput = {
+  readonly location?: {
+    readonly location?: { readonly directory?: string | undefined; readonly workspace?: string | undefined } | undefined
+  }["location"]
+  readonly presetId?: {
+    readonly presetId?: "openwiki-default" | "architecture-module" | "api-service" | "custom"
+    readonly instructions?: string
+    readonly format?: string
+    readonly applyPreset?: boolean
+  }["presetId"]
+  readonly instructions?: {
+    readonly presetId?: "openwiki-default" | "architecture-module" | "api-service" | "custom"
+    readonly instructions?: string
+    readonly format?: string
+    readonly applyPreset?: boolean
+  }["instructions"]
+  readonly format?: {
+    readonly presetId?: "openwiki-default" | "architecture-module" | "api-service" | "custom"
+    readonly instructions?: string
+    readonly format?: string
+    readonly applyPreset?: boolean
+  }["format"]
+  readonly applyPreset?: {
+    readonly presetId?: "openwiki-default" | "architecture-module" | "api-service" | "custom"
+    readonly instructions?: string
+    readonly format?: string
+    readonly applyPreset?: boolean
+  }["applyPreset"]
+}
+
+export type OpenwikisFormatPutOutput = {
+  readonly location: {
+    readonly directory: string
+    readonly workspaceID?: string
+    readonly project: { readonly id: string; readonly directory: string }
+  }
+  readonly data: {
+    readonly presetId: "openwiki-default" | "architecture-module" | "api-service" | "custom"
+    readonly instructions: string
+    readonly format: string
+    readonly instructionsPath: string
+    readonly formatPath: string
+    readonly wikiRoot: string
+  }
+}
+
+export type OpenwikisFormatPresetsInput = {
+  readonly location?: {
+    readonly location?: { readonly directory?: string | undefined; readonly workspace?: string | undefined } | undefined
+  }["location"]
+}
+
+export type OpenwikisFormatPresetsOutput = {
+  readonly location: {
+    readonly directory: string
+    readonly workspaceID?: string
+    readonly project: { readonly id: string; readonly directory: string }
+  }
+  readonly data: ReadonlyArray<{
+    readonly id: "openwiki-default" | "architecture-module" | "api-service" | "custom"
+    readonly instructions: string
+    readonly format: string
+  }>
+}
+
+export type OpenwikisConsentInput = {
+  readonly location?: {
+    readonly location?: { readonly directory?: string | undefined; readonly workspace?: string | undefined } | undefined
+  }["location"]
+  readonly consent: { readonly consent: boolean; readonly consentAction: "adopt" | "backup-rebuild" }["consent"]
+  readonly consentAction: {
+    readonly consent: boolean
+    readonly consentAction: "adopt" | "backup-rebuild"
+  }["consentAction"]
+}
+
+export type OpenwikisConsentOutput = {
+  readonly location: {
+    readonly directory: string
+    readonly workspaceID?: string
+    readonly project: { readonly id: string; readonly directory: string }
+  }
+  readonly data: {
+    readonly enabled: boolean
+    readonly projectDirectory: string
+    readonly wikiRoot: string
+    readonly wikiExists: boolean
+    readonly ownership: "absent" | "opencode-managed" | "foreign" | "conflict"
+    readonly consentRequired: boolean
+    readonly foreignPaths: ReadonlyArray<string>
+    readonly marker: {
+      readonly version: number | "Infinity" | "-Infinity" | "NaN"
+      readonly managedBy: "opencode"
+      readonly createdAt: string
+      readonly updatedAt: string
+      readonly formatPresetId?: string
+      readonly consentedAt?: string
+      readonly consentAction?: "adopt" | "backup-rebuild"
+      readonly backupPath?: string
+    } | null
+    readonly job: {
+      readonly id: string
+      readonly directory: string
+      readonly mode: "code"
+      readonly command: "init" | "update"
+      readonly stage:
+        | "queued"
+        | "preparing"
+        | "mapping-model"
+        | "running"
+        | "writing"
+        | "completed"
+        | "failed"
+        | "cancelled"
+      readonly model: { readonly providerID: string; readonly modelID: string }
+      readonly mappedProvider?: string
+      readonly startedAt: number | "Infinity" | "-Infinity" | "NaN"
+      readonly updatedAt: number | "Infinity" | "-Infinity" | "NaN"
+      readonly detail?: string
+      readonly error?: { readonly code: string; readonly message: string; readonly providerID?: string }
+      readonly cancelRequested?: boolean
+      readonly childPid?: number | "Infinity" | "-Infinity" | "NaN"
+    } | null
+    readonly model: { readonly providerID: string; readonly modelID: string } | null
+    readonly hasLogin: boolean
+  }
+}
+
+export type OpenwikisGenerateInput = {
+  readonly location?: {
+    readonly location?: { readonly directory?: string | undefined; readonly workspace?: string | undefined } | undefined
+  }["location"]
+  readonly model?: {
+    readonly model?: { readonly providerID: string; readonly modelID: string } | string
+    readonly consent?: boolean
+    readonly consentAction?: "adopt" | "backup-rebuild"
+    readonly openWikiModelOverride?: string | null
+  }["model"]
+  readonly consent?: {
+    readonly model?: { readonly providerID: string; readonly modelID: string } | string
+    readonly consent?: boolean
+    readonly consentAction?: "adopt" | "backup-rebuild"
+    readonly openWikiModelOverride?: string | null
+  }["consent"]
+  readonly consentAction?: {
+    readonly model?: { readonly providerID: string; readonly modelID: string } | string
+    readonly consent?: boolean
+    readonly consentAction?: "adopt" | "backup-rebuild"
+    readonly openWikiModelOverride?: string | null
+  }["consentAction"]
+  readonly openWikiModelOverride?: {
+    readonly model?: { readonly providerID: string; readonly modelID: string } | string
+    readonly consent?: boolean
+    readonly consentAction?: "adopt" | "backup-rebuild"
+    readonly openWikiModelOverride?: string | null
+  }["openWikiModelOverride"]
+}
+
+export type OpenwikisGenerateOutput = {
+  readonly location: {
+    readonly directory: string
+    readonly workspaceID?: string
+    readonly project: { readonly id: string; readonly directory: string }
+  }
+  readonly data: {
+    readonly id: string
+    readonly directory: string
+    readonly mode: "code"
+    readonly command: "init" | "update"
+    readonly stage:
+      | "queued"
+      | "preparing"
+      | "mapping-model"
+      | "running"
+      | "writing"
+      | "completed"
+      | "failed"
+      | "cancelled"
+    readonly model: { readonly providerID: string; readonly modelID: string }
+    readonly mappedProvider?: string
+    readonly startedAt: number | "Infinity" | "-Infinity" | "NaN"
+    readonly updatedAt: number | "Infinity" | "-Infinity" | "NaN"
+    readonly detail?: string
+    readonly error?: { readonly code: string; readonly message: string; readonly providerID?: string }
+    readonly cancelRequested?: boolean
+    readonly childPid?: number | "Infinity" | "-Infinity" | "NaN"
+  }
+}
+
+export type OpenwikisUpdateInput = {
+  readonly location?: {
+    readonly location?: { readonly directory?: string | undefined; readonly workspace?: string | undefined } | undefined
+  }["location"]
+  readonly model?: {
+    readonly model?: { readonly providerID: string; readonly modelID: string } | string
+    readonly consent?: boolean
+    readonly consentAction?: "adopt" | "backup-rebuild"
+    readonly openWikiModelOverride?: string | null
+  }["model"]
+  readonly consent?: {
+    readonly model?: { readonly providerID: string; readonly modelID: string } | string
+    readonly consent?: boolean
+    readonly consentAction?: "adopt" | "backup-rebuild"
+    readonly openWikiModelOverride?: string | null
+  }["consent"]
+  readonly consentAction?: {
+    readonly model?: { readonly providerID: string; readonly modelID: string } | string
+    readonly consent?: boolean
+    readonly consentAction?: "adopt" | "backup-rebuild"
+    readonly openWikiModelOverride?: string | null
+  }["consentAction"]
+  readonly openWikiModelOverride?: {
+    readonly model?: { readonly providerID: string; readonly modelID: string } | string
+    readonly consent?: boolean
+    readonly consentAction?: "adopt" | "backup-rebuild"
+    readonly openWikiModelOverride?: string | null
+  }["openWikiModelOverride"]
+}
+
+export type OpenwikisUpdateOutput = {
+  readonly location: {
+    readonly directory: string
+    readonly workspaceID?: string
+    readonly project: { readonly id: string; readonly directory: string }
+  }
+  readonly data: {
+    readonly id: string
+    readonly directory: string
+    readonly mode: "code"
+    readonly command: "init" | "update"
+    readonly stage:
+      | "queued"
+      | "preparing"
+      | "mapping-model"
+      | "running"
+      | "writing"
+      | "completed"
+      | "failed"
+      | "cancelled"
+    readonly model: { readonly providerID: string; readonly modelID: string }
+    readonly mappedProvider?: string
+    readonly startedAt: number | "Infinity" | "-Infinity" | "NaN"
+    readonly updatedAt: number | "Infinity" | "-Infinity" | "NaN"
+    readonly detail?: string
+    readonly error?: { readonly code: string; readonly message: string; readonly providerID?: string }
+    readonly cancelRequested?: boolean
+    readonly childPid?: number | "Infinity" | "-Infinity" | "NaN"
+  }
+}
+
+export type OpenwikisJobInput = {
+  readonly location?: {
+    readonly location?: { readonly directory?: string | undefined; readonly workspace?: string | undefined } | undefined
+  }["location"]
+}
+
+export type OpenwikisJobOutput = {
+  readonly location: {
+    readonly directory: string
+    readonly workspaceID?: string
+    readonly project: { readonly id: string; readonly directory: string }
+  }
+  readonly data: {
+    readonly id: string
+    readonly directory: string
+    readonly mode: "code"
+    readonly command: "init" | "update"
+    readonly stage:
+      | "queued"
+      | "preparing"
+      | "mapping-model"
+      | "running"
+      | "writing"
+      | "completed"
+      | "failed"
+      | "cancelled"
+    readonly model: { readonly providerID: string; readonly modelID: string }
+    readonly mappedProvider?: string
+    readonly startedAt: number | "Infinity" | "-Infinity" | "NaN"
+    readonly updatedAt: number | "Infinity" | "-Infinity" | "NaN"
+    readonly detail?: string
+    readonly error?: { readonly code: string; readonly message: string; readonly providerID?: string }
+    readonly cancelRequested?: boolean
+    readonly childPid?: number | "Infinity" | "-Infinity" | "NaN"
+  } | null
+}
+
+export type OpenwikisCancelInput = {
+  readonly location?: {
+    readonly location?: { readonly directory?: string | undefined; readonly workspace?: string | undefined } | undefined
+  }["location"]
+}
+
+export type OpenwikisCancelOutput = {
+  readonly location: {
+    readonly directory: string
+    readonly workspaceID?: string
+    readonly project: { readonly id: string; readonly directory: string }
+  }
+  readonly data: {
+    readonly id: string
+    readonly directory: string
+    readonly mode: "code"
+    readonly command: "init" | "update"
+    readonly stage:
+      | "queued"
+      | "preparing"
+      | "mapping-model"
+      | "running"
+      | "writing"
+      | "completed"
+      | "failed"
+      | "cancelled"
+    readonly model: { readonly providerID: string; readonly modelID: string }
+    readonly mappedProvider?: string
+    readonly startedAt: number | "Infinity" | "-Infinity" | "NaN"
+    readonly updatedAt: number | "Infinity" | "-Infinity" | "NaN"
+    readonly detail?: string
+    readonly error?: { readonly code: string; readonly message: string; readonly providerID?: string }
+    readonly cancelRequested?: boolean
+    readonly childPid?: number | "Infinity" | "-Infinity" | "NaN"
+  } | null
 }
 
 export type ProjectCopiesCreateInput = {

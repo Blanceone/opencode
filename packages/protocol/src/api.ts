@@ -16,6 +16,7 @@ import { HealthGroup } from "./groups/health"
 import { PtyGroup } from "./groups/pty"
 import { makeQuestionGroup } from "./groups/question"
 import { ReferenceGroup } from "./groups/reference"
+import { OpenWikiGroup } from "./groups/openwiki"
 import { Authorization } from "./middleware/authorization"
 import { LocationGroup } from "./groups/location"
 import { IntegrationGroup } from "./groups/integration"
@@ -52,6 +53,7 @@ const makeApiFromGroup = <
     .add(PtyGroup.middleware(locationMiddleware))
     .add(makeQuestionGroup(locationMiddleware, sessionLocationMiddleware))
     .add(ReferenceGroup.middleware(locationMiddleware))
+    .add(OpenWikiGroup.middleware(locationMiddleware))
     .add(ProjectCopyGroup.middleware(locationMiddleware))
     .annotateMerge(
       OpenApi.annotations({

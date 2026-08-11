@@ -23,6 +23,7 @@ import { ProjectCopy } from "./project/copy"
 import { Pty } from "./pty"
 import { QuestionV2 } from "./question"
 import { Reference } from "./reference"
+import { OpenWiki } from "./openwiki"
 import { ReferenceGuidance } from "./reference/guidance"
 import * as SessionRunnerLLM from "./session/runner/llm"
 import { SessionRunnerModel } from "./session/runner/model"
@@ -46,6 +47,7 @@ export const locationServices = LayerNode.group([
   AgentV2.node,
   CommandV2.node,
   Reference.node,
+  OpenWiki.node,
   Integration.node,
   Catalog.node,
   AISDK.node,
