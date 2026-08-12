@@ -41,7 +41,7 @@ OpenCode 本机集成 — 工作进展与后续事项
 - F4：完成/失败 toast；detail 截断；404 停轮询 + 错误退避；Update 校验 hasLogin/盘符根
 - client regenerate：OpenWikiConflict/Unauthorized/ServerError；openwiki 单测 25 pass
 
-【提交 PENDING】feat(app): add full-page OpenWiki UI with file browser
+【提交 36b3e3a】feat(app): add full-page OpenWiki UI with file browser
 - 路由 `/:dir/wiki`：Wiki 入口改为全页（非弹窗）；`wikiHref` + `from` 返回路径；`FileProvider` 包裹
 - 左板块：状态 chips / 生成·更新 / 预设+保存 / 说明+FORMAT.md；右板块：`.wiki` 文件树 + 预览
 - 可拖拽分界线（常驻竖线）；固定左宽、右侧 flex-1 贴边；左右最小宽度钳制；宽度持久化
