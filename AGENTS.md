@@ -1,3 +1,74 @@
+# AGENTS.md
+
+This file provides guidance to Qoder (qoder.com) when working with code in this repository.
+
+OpenCode is an open-source AI coding agent: a CLI/TUI plus headless server, web app, and desktop app. It is a Bun + Turborepo monorepo; require Bun 1.3+ and always use `;` instead of `&&` in PowerShell.
+
+## Commands
+
+All commands assume `bun install` has been run at the repo root.
+
+### Develop
+
+- `bun dev` — run the CLI/TUI locally (equivalent of the built `opencode` binary); defaults to running against `packages/opencode`, use `bun dev <directory>` for another repo
+- `bun dev serve [--port 8080]` — start the headless API server (default port 4096)
+- `bun dev web` — start the server and open the web interface
+- `bun run dev:web` — run the web app (`packages/app`, Vite) against an already-running server
+- `bun run dev:desktop` — run the Electron desktop app (`packages/desktop`)
+- `bun run dev:storybook` — component playground (`packages/storybook`)
+
+### Test
+
+Tests MUST be run from a package directory, never the repo root (root `bun test` is guarded by `do-not-run-tests-from-root`):
+
+- `bun test` from `packages/opencode`, `packages/core`, `packages/app`, `packages/ui`, `packages/session-ui`, or `packages/llm`
+- Single test file: `bun test test/foo.test.ts`; single test by name: `bun test -t "test name"`
+- The `--only-failures` flag is in the package test scripts; drop it for a full clean run
+- `bun run test:httpapi` in `packages/opencode` exercises the public HTTP API (coverage/auth/effect modes)
+
+### Check
+
+- Typecheck: `bun typecheck` from a package directory (runs `tsgo --noEmit`), or `bun turbo typecheck` at root. Never run `tsc` directly.
+- Lint: `bun lint` at root (oxlint)
+
+### Build and codegen
+
+- Standalone executable: `./packages/opencode/script/build.ts --single`, output in `packages/opencode/dist/opencode-<platform>/bin/opencode`
+- After changing `packages/opencode/src/server/server.ts` or the public API/SDK: run `./script/generate.ts` at root (regenerates legacy SDK, OpenAPI spec, and formatting)
+- Desktop packaging: `bun run --cwd packages/desktop build`, then `package`
+
+## Architecture
+
+Bun workspaces live in `packages/*` (plus `packages/console/*`, `packages/stats/*`, `packages/sdk/js`, `packages/slack`). Shared dependency versions are pinned via the root `workspaces.catalog`; reference them with `"dep": "catalog:"`.
+
+### Package dependency direction (strictly enforced)
+
+```
+schema → (core, protocol) → server
+client → (schema, protocol)      # never core or server
+sdk-next → client + core + server (in-process composition)
+```
+
+- `schema` — lightweight leaf of shared public records (`Schema.Struct` plain objects); no DB/Drizzle, providers, native modules, or WASM allowed here or in `protocol`
+- `protocol` — composes schema values into HTTP paths, payloads, envelopes, errors, cursors, and streams; owns Session endpoint construction and middleware placement
+- `core` — domain logic: Effect-based services, SQLite via Drizzle (`effect-drizzle-sqlite`), session execution, system context, tools, permissions, PTY, filesystem. Uses conditional `imports` (`#sqlite`, `#pty`, `#fff`) to pick bun vs node implementations
+- `server` — hosts protocol groups as the authoritative concrete `HttpApi`; owns protocol/domain adaptation
+- `client` — generated Promise (zero-Effect, root export) and Effect (`/effect` export) clients from the `HttpApi`; `src/generated` and `src/generated-effect` are codegen output — regenerate via `bun run generate` from `packages/client`, never edit by hand
+- `sdk-next` — in-process "Embedded OpenCode" host that runs the server's router in memory (no network listener)
+- `llm` — provider-neutral LLM streaming layer over AI SDK providers
+- `opencode` — the product package: CLI (yargs), server bootstrap, session runtime, agent/tool/provider wiring, TUI. Most day-to-day changes land here
+- UI stack, all SolidJS: `tui` (terminal UI on `@opentui/solid`), `app` (shared web UI, Vite), `ui` (shared component library), `session-ui`, `desktop` (Electron wrapping `app`), `storybook`
+- `sdk/js` — the legacy generated JavaScript SDK
+
+### Runtime layers in `packages/opencode`
+
+- The CLI starts a server (worker thread by default; `bun dev spawn` runs it in a separate process, needed for server-side breakpoints). TUI, web app, and desktop all talk to the server over HTTP using the generated client.
+- Core business logic lives in `packages/core/src` (session, system-context, tool, permission, plugin, project); `packages/opencode/src` holds CLI, config, server, and provider/agent composition.
+- V2 session runtime: durable prompt admission (`session_input`) is separate from model execution; see the "V2 Session Core" section below and `CONTEXT.md` for the authoritative domain vocabulary (System Context, Context Source, Context Epoch, Session Drain, etc.). Use that vocabulary in code and comments.
+- New providers should usually need no code changes — add them to https://github.com/anomalyco/models.dev first.
+
+## Working Agreements
+
 - To regenerate the legacy JavaScript SDK, run `./packages/sdk/js/script/build.ts`.
 - After changing the public Protocol or Server `HttpApi`, run `bun run generate` from `packages/client`. Do not edit `src/generated` or `src/generated-effect` directly.
 - Keep runtime dependencies directed from Schema to Core and Protocol, then from Core and Protocol to Server. Client runtime code may depend on Schema and Protocol but never Core or Server; `sdk-next` composes Client, Core, and Server.
