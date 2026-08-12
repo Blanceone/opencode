@@ -20,7 +20,16 @@ describe("openwiki ownership", () => {
     fs.writeFileSync(path.join(getWikiRoot(dir), "index.md"), "# hi\n")
     const result = classifyWikiOwnership(dir)
     expect(result.ownership).toBe("opencode-managed")
+    expect(result.wikiExists).toBe(true)
     expect(result.consentRequired).toBe(false)
+  })
+
+  test("marker without markdown is managed but not content-ready", async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ow-"))
+    await writeMarker(dir, { formatPresetId: "openwiki-default" })
+    const result = classifyWikiOwnership(dir)
+    expect(result.ownership).toBe("opencode-managed")
+    expect(result.wikiExists).toBe(false)
   })
 
   test("foreign when .wiki exists without marker", () => {

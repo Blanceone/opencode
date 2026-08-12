@@ -1209,4 +1209,12 @@ export const dict = {
   "dialog.openwiki.error.providerUnsupported": "Provider {{provider}} is not supported for OpenWiki.",
   "dialog.openwiki.error.opencodeLoginRequired": "This OpenCode model needs a Zen login, or pick a free anonymous model.",
   "dialog.openwiki.error.apiUnavailable": "OpenWiki API is unavailable. Restart the app after updating, or confirm the local server is running.",
+  "dialog.openwiki.error.nodeRequired": "OpenWiki needs Node.js on this machine (better-sqlite3). Install Node, set OPENWIKI_NODE_BINARY, or use a build that ships resources/openwiki/node.",
+  "dialog.openwiki.error.packageMissing": "OpenWiki package is missing from this install. Reinstall the app or re-run desktop prepare-openwiki.",
+  "dialog.openwiki.error.workerMissing": "OpenWiki worker is missing from this install. Reinstall the app or re-run desktop prepare-openwiki.",
+  "dialog.openwiki.confirm.regenerate": "A managed wiki already exists. Generate again and overwrite it?",
+  "dialog.openwiki.toast.completed.title": "OpenWiki ready",
+  "dialog.openwiki.toast.completed.description": "Wiki generation finished.",
+  "dialog.openwiki.toast.failed.title": "OpenWiki failed",
+  "dialog.openwiki.toast.failed.description": "{{message}}",
 }

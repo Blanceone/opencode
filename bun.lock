@@ -39,6 +39,7 @@
         "@kobalte/core": "catalog:",
         "@opencode-ai/client": "file:vendor/opencode-ai-client-1.17.13-v2.tgz",
         "@opencode-ai/core": "workspace:*",
+        "@opencode-ai/openwiki": "workspace:*",
         "@opencode-ai/schema": "workspace:*",
         "@opencode-ai/sdk": "workspace:*",
         "@opencode-ai/session-ui": "workspace:*",
@@ -692,6 +693,9 @@
     "packages/openwiki": {
       "name": "@opencode-ai/openwiki",
       "version": "0.0.0",
+      "dependencies": {
+        "@opencode-ai/client": "workspace:*",
+      },
       "devDependencies": {
         "@tsconfig/bun": "catalog:",
         "@types/bun": "catalog:",
@@ -956,6 +960,7 @@
       "version": "1.18.16",
       "dependencies": {
         "@opencode-ai/core": "workspace:*",
+        "@opencode-ai/openwiki": "workspace:*",
         "@opencode-ai/plugin": "workspace:*",
         "@opencode-ai/sdk": "workspace:*",
         "@opencode-ai/ui": "workspace:*",

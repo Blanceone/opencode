@@ -1,7 +1,12 @@
 import { OpenWiki } from "@opencode-ai/core/openwiki"
 import { Effect } from "effect"
 import { HttpApiBuilder } from "effect/unstable/httpapi"
-import { OpenWikiError } from "@opencode-ai/protocol/groups/openwiki"
+import {
+  OpenWikiConflictError,
+  OpenWikiError,
+  OpenWikiServerError,
+  OpenWikiUnauthorizedError,
+} from "@opencode-ai/protocol/groups/openwiki"
 import { Api } from "../api"
 import { response } from "../location"
 
@@ -9,12 +14,22 @@ const mapError = <A, R>(effect: Effect.Effect<A, OpenWiki.Error, R>) =>
   effect.pipe(Effect.mapError((error) => toError(error)))
 
 function toError(error: OpenWiki.AdapterError) {
+  const data = {
+    message: error.message,
+    ...(error.code ? { code: error.code } : {}),
+  }
+  if (error.statusCode === 409) {
+    return new OpenWikiConflictError({ name: "OpenWikiConflictError", data })
+  }
+  if (error.statusCode === 401) {
+    return new OpenWikiUnauthorizedError({ name: "OpenWikiUnauthorizedError", data })
+  }
+  if (error.statusCode === 500) {
+    return new OpenWikiServerError({ name: "OpenWikiServerError", data })
+  }
   return new OpenWikiError({
     name: "OpenWikiError",
-    data: {
-      message: error.message,
-      ...(error.code ? { code: error.code } : {}),
-    },
+    data,
   })
 }
 

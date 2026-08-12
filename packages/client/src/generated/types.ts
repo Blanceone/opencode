@@ -101,6 +101,27 @@ export type OpenWikiError = {
 export const isOpenWikiError = (value: unknown): value is OpenWikiError =>
   typeof value === "object" && value !== null && "name" in value && value["name"] === "OpenWikiError"
 
+export type OpenWikiConflictError = {
+  readonly name: "OpenWikiConflictError"
+  readonly data: { readonly message: string; readonly code?: string | undefined }
+}
+export const isOpenWikiConflictError = (value: unknown): value is OpenWikiConflictError =>
+  typeof value === "object" && value !== null && "name" in value && value["name"] === "OpenWikiConflictError"
+
+export type OpenWikiUnauthorizedError = {
+  readonly name: "OpenWikiUnauthorizedError"
+  readonly data: { readonly message: string; readonly code?: string | undefined }
+}
+export const isOpenWikiUnauthorizedError = (value: unknown): value is OpenWikiUnauthorizedError =>
+  typeof value === "object" && value !== null && "name" in value && value["name"] === "OpenWikiUnauthorizedError"
+
+export type OpenWikiServerError = {
+  readonly name: "OpenWikiServerError"
+  readonly data: { readonly message: string; readonly code?: string | undefined }
+}
+export const isOpenWikiServerError = (value: unknown): value is OpenWikiServerError =>
+  typeof value === "object" && value !== null && "name" in value && value["name"] === "OpenWikiServerError"
+
 export type ProjectCopyError = {
   readonly name: "ProjectCopyError"
   readonly data: { readonly message: string; readonly forceRequired?: boolean | undefined }

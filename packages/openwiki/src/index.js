@@ -20,20 +20,58 @@ export { ensureWikiReference } from './references.js';
 export { startOpenWikiLlmGateway, stopOpenWikiLlmGateway } from './llm-gateway.js';
 
 import { classifyWikiOwnership } from './ownership.js';
-import { getJob } from './job-store.js';
+import { getChild, getJob, isJobActive, setChild, updateJob } from './job-store.js';
 import { readMarker } from './marker.js';
 import { removeWikiBind } from './bind.js';
 import { getBindPath, isSymlinkOrJunction, pathExists } from './paths.js';
 import { canUseOpenWikiGatewayModel } from './model-bridge.js';
 import { resolveOpenCodeCurrentModel } from './resolve-current-model.js';
+import { stopOpenWikiLlmGateway } from './llm-gateway.js';
+
+const STALE_PREPARE_MS = 2 * 60 * 1000;
+
+/** @param {number | undefined} pid */
+const isPidAlive = (pid) => {
+  if (!pid || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 /**
- * Best-effort: remove a leftover junction from a crashed job.
+ * Best-effort: clear leftover binds and ghost in-memory jobs after crash/restart.
  * @param {string} directory
  */
 export const recoverStaleBind = async (directory) => {
+  const job = getJob(directory);
+  const child = getChild(directory);
+  const childAlive = !!(child && !child.killed && child.exitCode == null);
+
+  if (job && isJobActive(directory)) {
+    const pidAlive = childAlive || isPidAlive(job.childPid);
+    const preparingTooLong =
+      !job.childPid && !childAlive && Date.now() - (job.updatedAt || job.startedAt) > STALE_PREPARE_MS;
+    if ((!pidAlive && job.childPid) || preparingTooLong) {
+      updateJob(directory, {
+        stage: 'failed',
+        error: {
+          code: 'openwiki-job-stale',
+          message: 'OpenWiki job was interrupted; worker is no longer running',
+        },
+      });
+      setChild(directory, null);
+      await stopOpenWikiLlmGateway(directory).catch(() => undefined);
+      await removeWikiBind(directory);
+      return;
+    }
+    return;
+  }
+
   const bindPath = getBindPath(directory);
-  if (pathExists(bindPath) && isSymlinkOrJunction(bindPath) && !getJob(directory)) {
+  if (pathExists(bindPath) && isSymlinkOrJunction(bindPath) && !childAlive) {
     await removeWikiBind(directory);
   }
 };

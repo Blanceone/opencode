@@ -8,6 +8,14 @@ import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { useServerSDK } from "@/context/server-sdk"
 import { authTokenFromCredentials } from "@/utils/server"
+import { showToast } from "@/utils/toast"
+import {
+  createOpenWikiClient,
+  isOpenWikiApiMissing,
+  openWikiLocation,
+  openWikiModelQuery,
+  unwrapOpenWikiData,
+} from "@/utils/openwiki-client"
 
 type WikiStatus = {
   projectDirectory?: string
@@ -40,6 +48,17 @@ type FormatPreset = {
 const PRESET_IDS = ["openwiki-default", "architecture-module", "api-service", "custom"] as const
 
 const ACTIVE_STAGES = new Set(["queued", "preparing", "mapping-model", "running", "writing"])
+const DETAIL_DISPLAY_MAX = 160
+const POLL_ACTIVE_MS = 1000
+const POLL_IDLE_MS = 4000
+const POLL_BACKOFF_MAX_MS = 30_000
+
+function truncateDetail(detail: string | undefined) {
+  if (!detail) return undefined
+  const compact = detail.replace(/\s+/g, " ").trim()
+  if (compact.length <= DETAIL_DISPLAY_MAX) return compact
+  return `${compact.slice(0, DETAIL_DISPLAY_MAX)}…`
+}
 
 function unwrapData<T>(json: { data?: T } | T): T {
   if (json && typeof json === "object" && "data" in json) return (json as { data: T }).data
@@ -54,6 +73,17 @@ function parseErrorBody(text: string, fallback: string) {
   } catch {
     return text
   }
+}
+
+function parseThrownApiError(error: unknown, fallback: string) {
+  if (error && typeof error === "object") {
+    const record = error as { message?: string; data?: { message?: string }; error?: { message?: string } }
+    if (typeof record.data?.message === "string") return record.data.message
+    if (typeof record.error?.message === "string") return record.error.message
+    if (typeof record.message === "string" && record.message !== "UnexpectedStatus") return record.message
+  }
+  if (error instanceof Error) return error.message || fallback
+  return fallback
 }
 
 function isDriveRoot(directory: string) {
@@ -76,6 +106,9 @@ export const DialogOpenWiki: Component = () => {
   const [busy, setBusy] = createSignal(false)
   const [activeAction, setActiveAction] = createSignal<"generate" | "update" | null>(null)
   const [showFormat, setShowFormat] = createSignal(false)
+  const [pollPaused, setPollPaused] = createSignal(false)
+  const [pollDelayMs, setPollDelayMs] = createSignal(POLL_IDLE_MS)
+  const [lastNotifiedStage, setLastNotifiedStage] = createSignal<string | null>(null)
 
   const directory = () => sdk().directory
 
@@ -122,6 +155,17 @@ export const DialogOpenWiki: Component = () => {
     return stage
   }
 
+  const openwikiApi = () => {
+    const server = serverSDK().server.http
+    return createOpenWikiClient({
+      baseUrl: server.url,
+      fetch: platform.fetch,
+      username: server.username,
+      password: server.password,
+    })
+  }
+
+  /** Fallback when generated client hits a server without /api/openwiki (stale sidecar). */
   const openwikiFetch = async <T,>(path: string, init?: RequestInit): Promise<T> => {
     const server = serverSDK().server.http
     const headers: Record<string, string> = {
@@ -150,6 +194,15 @@ export const DialogOpenWiki: Component = () => {
     return unwrapData(await res.json())
   }
 
+  const withOpenWiki = async <T,>(primary: () => Promise<T>, fallback: () => Promise<T>): Promise<T> => {
+    try {
+      return await primary()
+    } catch (error) {
+      if (!isOpenWikiApiMissing(error)) throw error
+      return fallback()
+    }
+  }
+
   const formatFailure = (jobError?: WikiStatus["job"] extends null ? never : NonNullable<WikiStatus["job"]>["error"]) => {
     if (!jobError) return null
     if (jobError.code === "no-provider-login" || jobError.code === "provider-unsupported-for-openwiki") {
@@ -164,6 +217,9 @@ export const DialogOpenWiki: Component = () => {
     }
     if (jobError.code === "model-required") return language.t("dialog.openwiki.error.modelRequired")
     if (jobError.code === "wiki-consent-required") return language.t("dialog.openwiki.error.consentRequired")
+    if (jobError.code === "openwiki-node-required") return language.t("dialog.openwiki.error.nodeRequired")
+    if (jobError.code === "openwiki-package-missing") return language.t("dialog.openwiki.error.packageMissing")
+    if (jobError.code === "openwiki-worker-missing") return language.t("dialog.openwiki.error.workerMissing")
     if (!jobError.message) return null
     // Node/Electron stack dumps are huge; keep the actionable Error line for the dialog.
     const firstError = jobError.message.match(/(?:^|\n)Error: ([^\r\n]+)/)
@@ -171,14 +227,111 @@ export const DialogOpenWiki: Component = () => {
     return jobError.message.length > 400 ? `${jobError.message.slice(0, 400)}…` : jobError.message
   }
 
+  const extractErrorCode = (e: unknown) => {
+    if (!e || typeof e !== "object") return undefined
+    const record = e as {
+      code?: string
+      data?: { code?: string }
+      error?: { code?: string; data?: { code?: string } }
+    }
+    return record.data?.code || record.error?.data?.code || record.error?.code || record.code
+  }
+
   const formatCaughtError = (e: unknown) => {
-    if (!(e instanceof Error)) return String(e)
-    const message = e.message.trim()
+    if (isOpenWikiApiMissing(e)) return language.t("dialog.openwiki.error.apiUnavailable")
+    const code = extractErrorCode(e)
+    if (code === "openwiki-node-required") return language.t("dialog.openwiki.error.nodeRequired")
+    if (code === "openwiki-package-missing") return language.t("dialog.openwiki.error.packageMissing")
+    if (code === "openwiki-worker-missing") return language.t("dialog.openwiki.error.workerMissing")
+    if (code === "wiki-consent-required") return language.t("dialog.openwiki.error.consentRequired")
+    if (code === "model-required") return language.t("dialog.openwiki.error.modelRequired")
+    if (code === "no-provider-login") {
+      const provider =
+        (e as { data?: { providerID?: string } })?.data?.providerID || modelRef()?.providerID || "—"
+      if (provider === "opencode" || provider === "opencode-go") {
+        return language.t("dialog.openwiki.error.opencodeLoginRequired")
+      }
+      return language.t("dialog.openwiki.error.noProviderLogin", { provider })
+    }
+    if (code === "provider-unsupported-for-openwiki") {
+      const provider =
+        (e as { data?: { providerID?: string } })?.data?.providerID || modelRef()?.providerID || "—"
+      return language.t("dialog.openwiki.error.providerUnsupported", { provider })
+    }
+    const message = parseThrownApiError(e, language.t("dialog.openwiki.error.apiUnavailable")).trim()
     if (!message || message === "Not found" || message === "Not Found" || /\b404\b/.test(message)) {
       return language.t("dialog.openwiki.error.apiUnavailable")
     }
+    if (/openwiki-node-required|requires Node\.js|Electron-as-Node/i.test(message)) {
+      return language.t("dialog.openwiki.error.nodeRequired")
+    }
     return message
   }
+
+  const notifyTerminalJob = (stage: string | undefined, jobError?: WikiStatus["job"] extends null
+    ? never
+    : NonNullable<WikiStatus["job"]>["error"]) => {
+    if (!stage || stage === lastNotifiedStage()) return
+    if (stage === "completed") {
+      setLastNotifiedStage(stage)
+      showToast({
+        title: language.t("dialog.openwiki.toast.completed.title"),
+        description: language.t("dialog.openwiki.toast.completed.description"),
+        variant: "success",
+      })
+      return
+    }
+    if (stage === "failed") {
+      setLastNotifiedStage(stage)
+      const message =
+        formatFailure(jobError) || jobError?.message || language.t("dialog.openwiki.job.failed")
+      showToast({
+        title: language.t("dialog.openwiki.toast.failed.title"),
+        description: language.t("dialog.openwiki.toast.failed.description", { message }),
+        variant: "error",
+      })
+    }
+  }
+
+  const toWikiStatus = (data: {
+    projectDirectory: string
+    wikiRoot: string
+    wikiExists: boolean
+    ownership: string
+    consentRequired: boolean
+    hasLogin: boolean
+    foreignPaths: ReadonlyArray<string>
+    model: null | { providerID: string; modelID: string }
+    job: WikiStatus["job"]
+  }): WikiStatus => ({
+    projectDirectory: data.projectDirectory,
+    wikiRoot: data.wikiRoot,
+    wikiExists: data.wikiExists,
+    ownership: data.ownership,
+    consentRequired: data.consentRequired,
+    hasLogin: data.hasLogin,
+    foreignPaths: [...data.foreignPaths],
+    model: data.model,
+    job: data.job
+      ? {
+          stage: data.job.stage,
+          detail: data.job.detail,
+          error: data.job.error
+            ? {
+                message: data.job.error.message,
+                code: data.job.error.code,
+                providerID: data.job.error.providerID,
+              }
+            : undefined,
+        }
+      : null,
+  })
+
+  const toFormatBundle = (data: { presetId: string; instructions: string; format: string }): FormatBundle => ({
+    presetId: data.presetId,
+    instructions: data.instructions,
+    format: data.format,
+  })
 
   const presetLabel = (id: string) => {
     if (id === "openwiki-default") return language.t("dialog.openwiki.format.preset.openwiki-default")
@@ -191,19 +344,59 @@ export const DialogOpenWiki: Component = () => {
   const refresh = async () => {
     try {
       const selected = modelRef()
-      const modelQuery = selected ? `?model=${encodeURIComponent(`${selected.providerID}/${selected.modelID}`)}` : ""
-      const nextStatus = await openwikiFetch<WikiStatus>(`/api/openwiki/status${modelQuery}`)
+      const location = openWikiLocation(directory())
+      const model = openWikiModelQuery(selected)
+      const api = openwikiApi()
+      const nextStatus = await withOpenWiki(
+        async () => toWikiStatus(unwrapOpenWikiData(await api.status({ location, model }))),
+        async () => {
+          const modelQuery = model ? `?model=${encodeURIComponent(model)}` : ""
+          return openwikiFetch<WikiStatus>(`/api/openwiki/status${modelQuery}`)
+        },
+      )
       setStatus(nextStatus)
-      setFormat(await openwikiFetch<FormatBundle>("/api/openwiki/format"))
-      setPresets((await openwikiFetch<FormatPreset[]>("/api/openwiki/format/presets")) ?? [])
+      setFormat(
+        await withOpenWiki(
+          async () => toFormatBundle(unwrapOpenWikiData(await api.formatGet({ location }))),
+          async () => openwikiFetch<FormatBundle>("/api/openwiki/format"),
+        ),
+      )
+      setPresets(
+        await withOpenWiki(
+          async () =>
+            unwrapOpenWikiData(await api.formatPresets({ location })).map((preset) => ({
+              id: preset.id,
+              instructions: preset.instructions,
+              format: preset.format,
+            })),
+          async () => (await openwikiFetch<FormatPreset[]>("/api/openwiki/format/presets")) ?? [],
+        ),
+      )
       setError(formatFailure(nextStatus.job?.error))
+      notifyTerminalJob(nextStatus.job?.stage, nextStatus.job?.error)
+      setPollPaused(false)
+      setPollDelayMs(ACTIVE_STAGES.has(nextStatus.job?.stage || "") ? POLL_ACTIVE_MS : POLL_IDLE_MS)
     } catch (e) {
       setError(formatCaughtError(e))
+      if (isOpenWikiApiMissing(e)) {
+        setPollPaused(true)
+        return
+      }
+      setPollDelayMs((ms) => Math.min(ms * 2, POLL_BACKOFF_MAX_MS))
     }
   }
 
   const run = async (command: "generate" | "update" | "cancel") => {
     if (command !== "cancel" && working()) return
+    if (
+      command === "generate" &&
+      status()?.ownership === "opencode-managed" &&
+      status()?.wikiExists &&
+      typeof globalThis.confirm === "function" &&
+      !globalThis.confirm(language.t("dialog.openwiki.confirm.regenerate"))
+    ) {
+      return
+    }
     setBusy(true)
     setError(null)
     if (command === "generate" || command === "update") {
@@ -223,13 +416,23 @@ export const DialogOpenWiki: Component = () => {
     }
     try {
       const selected = modelRef()
+      const location = openWikiLocation(directory())
+      const api = openwikiApi()
       if (command === "cancel") {
-        await openwikiFetch("/api/openwiki/cancel", { method: "POST", body: "{}" })
+        await withOpenWiki(
+          async () => api.cancel({ location }),
+          async () => openwikiFetch("/api/openwiki/cancel", { method: "POST", body: "{}" }),
+        )
       } else {
-        await openwikiFetch(`/api/openwiki/${command}`, {
-          method: "POST",
-          body: JSON.stringify(selected ? { model: selected } : {}),
-        })
+        const body = selected ? { model: selected } : {}
+        await withOpenWiki(
+          async () => api[command]({ location, ...body }),
+          async () =>
+            openwikiFetch(`/api/openwiki/${command}`, {
+              method: "POST",
+              body: JSON.stringify(body),
+            }),
+        )
       }
       await refresh()
     } catch (e) {
@@ -245,10 +448,20 @@ export const DialogOpenWiki: Component = () => {
     setBusy(true)
     setError(null)
     try {
-      await openwikiFetch("/api/openwiki/consent", {
-        method: "POST",
-        body: JSON.stringify({ consent: true, consentAction }),
-      })
+      const location = openWikiLocation(directory())
+      const api = openwikiApi()
+      await withOpenWiki(
+        async () => {
+          setStatus(toWikiStatus(unwrapOpenWikiData(await api.consent({ location, consent: true, consentAction }))))
+        },
+        async () => {
+          await openwikiFetch("/api/openwiki/consent", {
+            method: "POST",
+            body: JSON.stringify({ consent: true, consentAction }),
+          })
+          await refresh()
+        },
+      )
       await refresh()
     } catch (e) {
       setError(formatCaughtError(e))
@@ -266,11 +479,32 @@ export const DialogOpenWiki: Component = () => {
     setBusy(true)
     setError(null)
     try {
+      const location = openWikiLocation(directory())
+      const api = openwikiApi()
       setFormat(
-        await openwikiFetch<FormatBundle>("/api/openwiki/format", {
-          method: "PUT",
-          body: JSON.stringify(patch),
-        }),
+        await withOpenWiki(
+          async () => {
+            const presetId = PRESET_IDS.includes(patch.presetId as (typeof PRESET_IDS)[number])
+              ? (patch.presetId as (typeof PRESET_IDS)[number])
+              : undefined
+            return toFormatBundle(
+              unwrapOpenWikiData(
+                await api.formatPut({
+                  location,
+                  instructions: patch.instructions,
+                  format: patch.format,
+                  applyPreset: patch.applyPreset,
+                  presetId,
+                }),
+              ),
+            )
+          },
+          async () =>
+            openwikiFetch<FormatBundle>("/api/openwiki/format", {
+              method: "PUT",
+              body: JSON.stringify(patch),
+            }),
+        ),
       )
     } catch (e) {
       setError(formatCaughtError(e))
@@ -288,7 +522,8 @@ export const DialogOpenWiki: Component = () => {
   })
 
   createEffect(() => {
-    const ms = jobActive() ? 1000 : 2500
+    if (pollPaused()) return
+    const ms = jobActive() ? POLL_ACTIVE_MS : pollDelayMs()
     const timer = setInterval(() => void refresh(), ms)
     onCleanup(() => clearInterval(timer))
   })
@@ -332,7 +567,7 @@ export const DialogOpenWiki: Component = () => {
                 <span>
                   {language.t("dialog.openwiki.job")}:{" "}
                   {s().job ? jobStageLabel(s().job!.stage) : language.t("dialog.openwiki.job.idle")}
-                  <Show when={s().job?.detail}> — {s().job!.detail}</Show>
+                  <Show when={truncateDetail(s().job?.detail)}> — {truncateDetail(s().job!.detail)}</Show>
                 </span>
                 <Show when={jobActive()}>
                   <Spinner class="size-3.5 shrink-0 text-text-weaker" />
@@ -389,7 +624,13 @@ export const DialogOpenWiki: Component = () => {
           <Button
             size="small"
             variant="ghost"
-            disabled={working() || !!status()?.consentRequired || !status()?.wikiExists}
+            disabled={
+              working() ||
+              !!status()?.consentRequired ||
+              !status()?.wikiExists ||
+              status()?.hasLogin === false ||
+              isDriveRoot(workspacePath())
+            }
             onClick={() => void run("update")}
           >
             <Show when={activeAction() === "update"} fallback={language.t("dialog.openwiki.action.update")}>

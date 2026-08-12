@@ -1,8 +1,8 @@
 OpenCode 本机集成 — 工作进展与后续事项
 ============================================
-日期：2026-08-12（审查后更新：P0–P2 修复计划 + Stage N 移植顺序）
+日期：2026-08-12（F0–F4 已提交；安装包手测 OpenWiki 可运行）
 分支：personal（基于 origin/dev 浅克隆）
-远程：origin = https://github.com/Blanceone/opencode.git（同步用 origin/dev）
+远程：origin = https://github.com/Blanceone/opencode.git（同步用 origin/dev；本线推 origin/personal）
 本机约束：
   - 工具链：D:\work\ai\builder_tools（OPENCODE_BUILDER_TOOLS）
   - 依赖缓存 / tarball / openwiki-bundle：仓库根 depends/（gitignored，勿上传）
@@ -32,13 +32,21 @@ OpenCode 本机集成 — 工作进展与后续事项
 - desktop：prepare 拷贝 worker.mjs；sidecar 注入 OPENWIKI_PACKAGE_ROOT / WORKER_PATH
 - dialog：工作区/Wiki 路径分列、归属文案、任务阶段+Spinner、生成中禁用、盘符根警告
 - schema：openwiki-status 编解码单测；i18n 全 locale 补键（en+zh 实译）
-- 工作日志：写入审查结论与 F0–F4 / N1–N4 计划
+
+【提交 679043a】feat(openwiki): harden F0-F4 client, packaging, and job reliability
+- F0：App/TUI 经 @opencode-ai/openwiki/http-client → workspace client；会话页 Wiki 入口；TUI 传当前模型
+- F1：prepare 缺 bundle 失败（prod）；禁 Electron-as-Node；sidecar 注入 Node/worker；可读错误文案
+- F2：wikiExists=有 md；jsonc 不改写写 sibling；regenerate 确认；language mojibake
+- F3：HttpApi 映射 409/401/500；cancel 等 child exit；status 回收陈旧 job/bind
+- F4：完成/失败 toast；detail 截断；404 停轮询 + 错误退避；Update 校验 hasLogin/盘符根
+- client regenerate：OpenWikiConflict/Unauthorized/ServerError；openwiki 单测 25 pass
 
 三、本机验证
 ------------
-- CLI / typecheck / prepare-openwiki：此前已通；本轮加 worker-runtime / Status encode 测
-- 安装版曾现：Expected OpenWiki.Status + asar chunks/worker.mjs 缺失 → 本轮已修并重打 oc-dist
-- 未做：付费模型 E2E；代码签名；vendored client 含 openwikis；TUI SDK 接通；安装包内置 Node
+- bun test --cwd packages/openwiki：25 pass（reclaim / ownership / jsonc / worker-runtime）
+- bun typecheck：packages/app、packages/server 通过
+- 重打 depends/oc-dist（2026-08-12）：含 worker.mjs；安装/解包后 OpenWiki 已可运行（用户确认）
+- 未做：付费模型 E2E；代码签名；vendored client tarball 升级含 openwikis；安装包内置 Node；干净无 Node 机回归
 
 四、自定义 / 自部署模型影响（结论）
 --------------------------------
@@ -48,96 +56,39 @@ OpenCode 本机集成 — 工作进展与后续事项
 
 五、安装产物（本机 depends/oc-dist，gitignored）
 ----------------------------------------------
-  depends/oc-dist/opencode-desktop-win-x64.exe
-  depends/oc-dist/win-unpacked/OpenCodeDev.exe
-  win-unpacked/resources/openwiki/worker.mjs   （本轮确认已打入）
+  depends/oc-dist/opencode-desktop-win-x64.exe   (~176MB，本轮)
+  depends/oc-dist/win-unpacked/OpenCode.exe
+  win-unpacked/resources/openwiki/worker.mjs
 
 打包备忘：
   MODELS_DEV_API_JSON=packages/opencode/test/tool/fixtures/models-api.json
-  OPENCODE_PRODUCT_NAME=OpenCodeDev
+  OPENCODE_PRODUCT_NAME=OpenCodeDev   # 可选；本轮产物主程序名为 OpenCode.exe
+  OPENCODE_CHANNEL=prod               # release 缺 bundle 时 prepare 必须失败
   CSC_IDENTITY_AUTO_DISCOVERY=false
-  NODE_TLS_REJECT_UNAUTHORIZED=0   # 本机拉 Electron 证书失败时临时用，勿写入脚本
+  NODE_TLS_REJECT_UNAUTHORIZED=0      # 本机拉 Electron 证书失败时临时用，勿写入脚本
 
-六、对照 OpenChamber（能力差距，未变）
-------------------------------------
+六、对照 OpenChamber（能力差距）
+------------------------------
 对照：D:\work\ai\openchamber\openchamber @ 1fa02046
-  - generate/update + gateway + consent + format get/put + 打包     Chamber✅ / OC✅（需再稳）
-  - 可见入口                                                         Chamber✅ / OC△（新建会话有按钮；会话页仅 /wiki；TUI 断）
-  - reference-sources / format parse-merge / Word / Wiki 树 / smoke Chamber✅ / OC❌
+  - generate/update + gateway + consent + format get/put + 打包     Chamber✅ / OC✅（手测可跑）
+  - 可见入口                                                         Chamber✅ / OC✅（新建会话 + 会话页 + TUI）
+  - reference-sources / format parse-merge / Word / Wiki 树 / smoke Chamber✅ / OC❌（Stage N）
 
-七、集成审查结论（2026-08-12）
-----------------------------
-审查范围：App/TUI、packages/openwiki、core/server/schema、desktop 打包、i18n。
-结论：主链路已接通，但生产就绪不足——先修 P0→P1，再开 Stage N（原 O1–O4）。
+七、集成审查结论（2026-08-12）与关闭状态
+--------------------------------------
+原 P0/P1 项已在 F0–F4 关闭（代码 + 安装包手测）。剩余为 P2 / Stage N / 工程收尾。
 
-【P0 阻断】
-  1. TUI Wiki 调 openwikis.*，@opencode-ai/sdk/v2 无对应接口 → 侧栏永久不可用
-  2. App vendored client 仍缺 openwikis；对话框手写 fetch，与正式客户端脱节
-  3. 打包机无系统 Node 时 worker 走 ELECTRON_RUN_AS_NODE → better-sqlite3 ABI 易挂
-  4. prepare-openwiki 缺 bundle 时 exit 0 → 安装包可无 resources/openwiki
+仍开放：
+  - Stage N（树 / Word / format parse-merge / reference-sources）
+  - 多数 locale 仍英文；TUI 部分硬编码 EN
+  - 付费模型 gateway E2E；CSC 签名；可选 job 落盘 .wiki
+  - App vendored client tarball 仍可升级（当前走 openwiki/http-client + fallback）
 
-【P1 严重】
-  5. 仅有 marker、无 .md 也 wikiExists=true →「已就绪」且可点更新（语义谎言）
-  6. ensureWikiReference 把 opencode.jsonc 写成纯 JSON，丢掉注释
-  7. adapter statusCode（409/401/500）被 HttpApi 压成 400
-  8. TUI 不传当前模型；会话页无 Wiki 按钮；已有 wiki 再生成无确认
-  9. cancel/内存 job 易残留；language.js 提示词 mojibake（â€?）
+八、下一步计划
+--------------
+原则：F 已手测通过 → 可开 Stage N；仍建议先与 origin/dev 同步再大移植。
 
-【P2 缺口/打磨】
-  10. Stage N 未开；协议文案仍像有 browsing
-  11. 多数 locale 英文；TUI 硬编码 EN；部分 locale 曾被 sync 脚本粘行
-  12. Update 未统一 hasLogin/盘符根校验；完成态无 toast
-
-八、下一步计划（严格执行顺序）
-----------------------------
-原则：P0→P1 全部落地并手测通过后，才启动 Stage N。不可先堆树/导出掩盖稳定性问题。
-新 API 在 App vendored client 未升级前，可继续 sidecar 直连；同时推进正式 client。
-
-────────── 阶段 F：稳定性与正确性（优先，对应审查 P0–P1）──────────
-
-【F0】客户端接通（约 0.5–1 天）
-  目标：App / TUI 都能可靠调 OpenWiki API，并传当前模型。
-  任务：
-    a. 确认 packages/client 已有 openwikis.*；刷新 App vendor tarball 或改 workspace 依赖
-    b. DialogOpenWiki：优先用生成 client；保留直连作 fallback（或删直连二选一）
-    c. 修复 TUI sidebar/wiki.tsx：改用可用 client / 或与 App 相同的 raw fetch；传入 TUI 当前模型
-    d. 会话页补 PromptWikiButton（与新建会话同级可见入口）
-  验收：TUI 与 App 均可 status → generate；模型与 UI 选择一致；无「API unavailable」误报
-
-【F1】桌面打包硬化（约 0.5–1 天）
-  目标：用户机上 worker 一定跑在真 Node；缺 bundle 不能出包。
-  任务：
-    a. prepare-openwiki：缺 depends/openwiki-bundle / agent entry / worker.mjs → exit 1（至少 release）
-    b. 打包内置或明确探测 Node：优先 OPENWIKI_NODE_BINARY → 随包 node → PATH；禁止静默 Electron-as-Node
-    c. sidecar createSidecarEnv 写入 OPENWIKI_NODE_BINARY（若已解析）
-    d. 失败时对话框可读文案（code: openwiki-node-required / openwiki-package-missing）
-  验收：干净 Windows（无全局 node）安装包仍能 generate，或明确提示安装 Node；故意删 bundle 时 prebuild 失败
-
-【F2】语义与安全（约 0.5 天）
-  目标：状态栏不撒谎；危险操作有确认；配置文件不损坏。
-  任务：
-    a. wikiExists = 有可用 .md（或拆 managed / contentReady）；Update 仅 contentReady
-    b. marker 可在 format seed 时写入，但不得单独把 wikiExists 置 true
-    c. Generate：ownership=opencode-managed 且已有内容 → 确认框；或禁用 Generate 引导 Update
-    d. ensureWikiReference：保留 JSONC，或只写 opencode.json 并跳过 .jsonc+警告
-    e. 修复 language.js mojibake
-  验收：仅 format、无 md 时显示「尚未创建」；jsonc 注释保留；中文语言提示无乱码
-
-【F3】API / 任务可靠性（约 0.5 天）
-  目标：错误码可区分；取消与重启不脏留。
-  任务：
-    a. OpenWikiError 映射 adapter.statusCode（409 consent / 401 login / 500 package）
-    b. App 解析 error.code（不仅 message）
-    c. cancel：等 child exit 再定 stage；status 时回收陈旧 job/bind
-    d. 可选：job 快照落盘 .wiki，sidecar 重启可恢复或标记 failed
-  验收：consent 冲突返回非 400；取消后无残留 openwiki junction；重启后无幽灵 running
-
-【F4】Dialog 打磨（可与 F2 同批，约 0.5 天）
-  - Update 与 Generate 统一 hasLogin / 盘符根禁用
-  - 完成/失败 toast；job.detail 截断，不把大段模型正文塞进状态行
-  - 对话框关闭或 404 退避，停止狂刷轮询
-
-────────── 阶段 N：Chamber Stage N 移植（F 完成后再开）──────────
+────────── 阶段 N：Chamber Stage N 移植（可开）──────────
 
 【N1】服务端能力（原 O1）
   - 迁入 packages/openwiki：reference-sources / format-parse / md-docx + 单测
@@ -166,6 +117,7 @@ OpenCode 本机集成 — 工作进展与后续事项
 2. PR 前整理 commit；补 Server HttpApi 集成测
 3. 安装包 CSC 签名；产品名默认无空格
 4. 付费模型 gateway E2E
+5. 可选：安装包内置 Node；job 快照落盘
 
 十、常用命令
 ------------
@@ -177,8 +129,7 @@ bun ./scripts/prepare-openwiki.ts   # packages/desktop
 # $env:OPENWIKI_NODE_BINARY="d:\work\app\nodejs\node.exe"
 # OpenChamber：D:\work\ai\openchamber\openchamber（dev @ 1fa02046）
 
-十一、本轮打包机回归摘要（Status + worker）
-------------------------------------------
-症状：Expected OpenWiki.Status；Cannot find module …\asar\…\chunks\worker.mjs
-修复：core decode Class；worker 解析到 resources/openwiki；sidecar 注入路径；dialog 短错误
-产物：depends/oc-dist（含 worker.mjs）
+十一、本轮打包机回归摘要
+------------------------
+F0–F4 后重打 oc-dist 成功；resources/openwiki/worker.mjs 已打入；用户确认 OpenWiki 可运行。
+此前 Status encode / asar worker 路径问题已在 aaeec29 修复。

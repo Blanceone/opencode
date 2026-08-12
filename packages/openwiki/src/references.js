@@ -75,6 +75,22 @@ export const ensureWikiReference = async (directory) => {
         : 'Project OpenWiki',
   };
 
+  // Never rewrite .jsonc as pretty JSON — that strips comments. Prefer a sibling opencode.json.
+  if (configPath.endsWith('.jsonc')) {
+    const jsonSibling = path.join(root, 'opencode.json');
+    if (!fs.existsSync(jsonSibling)) {
+      const nextJson = {
+        $schema: 'https://opencode.ai/config.json',
+        references: {
+          wiki: references.wiki,
+        },
+      };
+      await fsPromises.writeFile(jsonSibling, `${JSON.stringify(nextJson, null, 2)}\n`, 'utf8');
+      return { wrote: true, path: jsonSibling, reason: 'jsonc-sibling' };
+    }
+    return { wrote: false, path: configPath, reason: 'jsonc-skip' };
+  }
+
   const next = { ...doc, references };
   await fsPromises.writeFile(configPath, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
   return { wrote: true, path: configPath };

@@ -30,9 +30,19 @@ const src = srcCandidates.find(
 )
 
 if (!src) {
-  console.warn(`[prepare-openwiki] bundle missing under depends/openwiki-bundle/${version}`)
-  console.warn("Run: bun run --cwd packages/openwiki prepare:openwiki")
-  process.exit(0)
+  const channel = process.env.OPENCODE_CHANNEL || "dev"
+  const allowMissing = process.env.OPENWIKI_ALLOW_MISSING_BUNDLE === "1" || channel === "dev"
+  const message = `[prepare-openwiki] bundle missing under depends/openwiki-bundle/${version}`
+  if (allowMissing) {
+    console.warn(message)
+    console.warn("Run: bun run --cwd packages/openwiki prepare:openwiki")
+    console.warn("Dev channel continues without OpenWiki resources (set OPENCODE_CHANNEL=prod/beta to require bundle).")
+    process.exit(0)
+  }
+  console.error(message)
+  console.error("Run: bun run --cwd packages/openwiki prepare:openwiki")
+  console.error("Release packaging cannot continue without resources/openwiki.")
+  process.exit(1)
 }
 
 fs.rmSync(dest, { recursive: true, force: true })

@@ -373,13 +373,26 @@ export const cancelOpenWikiJob = async (directory) => {
   const resolved = path.resolve(directory);
   const job = getJob(resolved);
   if (!job || !isJobActive(resolved)) {
+    await removeWikiBind(resolved);
     return getJob(resolved);
   }
-  updateJob(resolved, { cancelRequested: true, stage: 'cancelled' });
+  updateJob(resolved, { cancelRequested: true });
   const child = getChild(resolved);
   if (child && !child.killed) {
     child.kill();
+    await new Promise((resolve) => {
+      const done = () => resolve(undefined);
+      child.once('close', done);
+      setTimeout(done, 5000);
+    });
+  } else if (job.childPid) {
+    try {
+      process.kill(job.childPid);
+    } catch {
+      // already gone
+    }
   }
+  updateJob(resolved, { stage: 'cancelled' });
   await stopOpenWikiLlmGateway(resolved);
   await removeWikiBind(resolved);
   setChild(resolved, null);

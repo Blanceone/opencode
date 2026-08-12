@@ -211,6 +211,23 @@ export async function checkHealth(url: string, password?: string | null): Promis
   return false
 }
 
+function resolvePackagedNodeBinary(resourcesPath: string, openwikiRoot: string) {
+  const names = process.platform === "win32" ? ["node.exe"] : ["node"]
+  const dirs = [
+    join(openwikiRoot, "node"),
+    openwikiRoot,
+    join(resourcesPath, "node"),
+    join(resourcesPath, "nodejs"),
+  ]
+  for (const dir of dirs) {
+    for (const name of names) {
+      const candidate = join(dir, name)
+      if (existsSync(candidate)) return candidate
+    }
+  }
+  return null
+}
+
 function createSidecarEnv(): Record<string, string> {
   const env = Object.fromEntries(
     Object.entries(process.env).flatMap(([key, value]) => (value === undefined ? [] : [[key, String(value)]])),
@@ -219,11 +236,14 @@ function createSidecarEnv(): Record<string, string> {
   if (process.platform === "linux") delete env.LD_PRELOAD
   // UtilityProcess may lack process.resourcesPath; pin OpenWiki paths for the sidecar.
   if (app.isPackaged) {
+    env.OPENWIKI_RESOURCES_PATH = process.resourcesPath
     const openwikiRoot = join(process.resourcesPath, "openwiki")
     if (existsSync(join(openwikiRoot, "package.json"))) {
       env.OPENWIKI_PACKAGE_ROOT = openwikiRoot
       const worker = join(openwikiRoot, "worker.mjs")
       if (existsSync(worker)) env.OPENWIKI_WORKER_PATH = worker
+      const node = resolvePackagedNodeBinary(process.resourcesPath, openwikiRoot)
+      if (node) env.OPENWIKI_NODE_BINARY = node
     }
   }
   return env

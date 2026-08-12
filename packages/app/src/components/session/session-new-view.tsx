@@ -6,6 +6,7 @@ import { useLanguage } from "@/context/language"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Mark } from "@opencode-ai/ui/logo"
 import { getDirectory, getFilename } from "@opencode-ai/core/util/path"
+import { PromptWikiButton } from "@/components/prompt-workspace-selector"
 
 const MAIN_WORKTREE = "main"
 const CREATE_WORKTREE = "create"
@@ -68,6 +69,9 @@ export function NewSessionView(props: NewSessionViewProps) {
               <div class="text-12-medium text-text-weak select-text leading-5 min-w-0 max-w-160 break-words text-center">
                 {label(current())}
               </div>
+            </div>
+            <div class="flex items-center justify-center min-h-7">
+              <PromptWikiButton />
             </div>
             <Show when={sync().project}>
               {(project) => (

@@ -9,7 +9,7 @@ export const OPENWIKI_DOCUMENT_LANGUAGE = 'zh-CN';
  * even if OpenWiki's --language flag is ignored or a prior wiki was English.
  */
 export const OPENWIKI_DOCUMENT_LANGUAGE_PROMPT = [
-  'Document language (mandatory, fixed by OpenCode â€?not user-configurable):',
+  'Document language (mandatory, fixed by OpenCode — not user-configurable):',
   '- Write every wiki page body in Simplified Chinese (zh-CN).',
   '- Keep code identifiers, file paths, API/type names, CLI commands, and config keys in their original form.',
   '- Do not generate the wiki in English or any other language.',

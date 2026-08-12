@@ -23,13 +23,27 @@ export const resolveOpenWikiNodeBinary = (env = process.env) => {
   }
 
   const toolsRoot = env.OPENCODE_BUILDER_TOOLS || DEFAULT_BUILDER_TOOLS;
+  const packageRoot =
+    typeof env.OPENWIKI_PACKAGE_ROOT === 'string' && env.OPENWIKI_PACKAGE_ROOT
+      ? path.resolve(env.OPENWIKI_PACKAGE_ROOT)
+      : null;
+  const resourcesPath =
+    typeof env.OPENWIKI_RESOURCES_PATH === 'string' && env.OPENWIKI_RESOURCES_PATH
+      ? path.resolve(env.OPENWIKI_RESOURCES_PATH)
+      : typeof process.resourcesPath === 'string'
+        ? process.resourcesPath
+        : null;
+
   const candidates = [
+    packageRoot && path.join(packageRoot, 'node', process.platform === 'win32' ? 'node.exe' : 'node'),
+    packageRoot && path.join(packageRoot, process.platform === 'win32' ? 'node.exe' : 'node'),
+    resourcesPath && path.join(resourcesPath, 'node', process.platform === 'win32' ? 'node.exe' : 'node'),
     path.join(toolsRoot, 'nodejs', 'node.exe'),
     path.join(toolsRoot, 'node', 'node.exe'),
     path.join(toolsRoot, 'nodejs', 'bin', 'node'),
     path.join(toolsRoot, 'node', 'bin', 'node'),
     path.join(toolsRoot, 'nodejs', 'bin', 'node.exe'),
-  ];
+  ].filter(Boolean);
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;
   }
@@ -107,9 +121,8 @@ export const resolveOpenWikiWorkerPath = (options = {}) => {
 };
 
 /**
- * Resolve how to launch the OpenWiki worker under Node or Electron.
- * Packaged Electron must set ELECTRON_RUN_AS_NODE so process.execPath behaves
- * as Node instead of opening another desktop window.
+ * Resolve how to launch the OpenWiki worker under a real Node binary.
+ * Do not fall back to ELECTRON_RUN_AS_NODE — better-sqlite3 ABI mismatches hang installs.
  *
  * @param {string} workerPath Absolute path to worker.mjs
  * @param {{
@@ -123,29 +136,32 @@ export const resolveOpenWikiWorkerLaunch = (workerPath, runtime = {}) => {
   const versions = runtime.versions || process.versions;
   const isElectron = Boolean(versions?.electron);
   const fromTools = resolveOpenWikiNodeBinary(env);
-  const preferred = runtime.execPath || fromTools || process.execPath;
-  const execPath = looksLikeBun(preferred) ? fromTools || preferred : preferred;
+  const preferred = fromTools || runtime.execPath || process.execPath;
+  const execPath = looksLikeBun(preferred) ? fromTools : preferred;
 
-  if (looksLikeBun(execPath)) {
+  if (!execPath || looksLikeBun(execPath)) {
     throw Object.assign(
       new Error(
-        'OpenWiki worker requires Node.js (better-sqlite3). Set OPENWIKI_NODE_BINARY or install Node on PATH / under OPENCODE_BUILDER_TOOLS.',
+        'OpenWiki worker requires Node.js (better-sqlite3). Set OPENWIKI_NODE_BINARY, install Node on PATH, or ship resources/openwiki/node.',
       ),
       { statusCode: 500, code: 'openwiki-node-required' },
     );
   }
 
-  /** @type {Record<string, string>} */
-  const envExtras = {};
-  if (isElectron && !fromTools) {
-    // Without this, spawning process.execPath may open another Electron window.
-    envExtras.ELECTRON_RUN_AS_NODE = '1';
+  // Never launch Electron as Node — ABI for native modules is unreliable.
+  if (isElectron && !fromTools && execPath === (runtime.execPath || process.execPath)) {
+    throw Object.assign(
+      new Error(
+        'OpenWiki worker requires a system Node.js binary (Electron-as-Node is disabled). Set OPENWIKI_NODE_BINARY or install Node on PATH.',
+      ),
+      { statusCode: 500, code: 'openwiki-node-required' },
+    );
   }
 
   return {
     binary: execPath,
     args: [workerPath],
-    envExtras,
+    envExtras: {},
     isElectron,
   };
 };

@@ -37,4 +37,16 @@ describe('ensureWikiReference', () => {
     const doc = JSON.parse(fs.readFileSync(path.join(dir, 'opencode.json'), 'utf8'));
     expect(doc.references.wiki.path).toBe('./docs');
   });
+
+  test('does not rewrite opencode.jsonc comments; writes sibling opencode.json', async () => {
+    const dir = tmp();
+    const jsonc = '{\n  // keep me\n  "model": "opencode/big-pickle"\n}\n';
+    fs.writeFileSync(path.join(dir, 'opencode.jsonc'), jsonc);
+    const result = await ensureWikiReference(dir);
+    expect(result.wrote).toBe(true);
+    expect(result.reason).toBe('jsonc-sibling');
+    expect(fs.readFileSync(path.join(dir, 'opencode.jsonc'), 'utf8')).toBe(jsonc);
+    const sibling = JSON.parse(fs.readFileSync(path.join(dir, 'opencode.json'), 'utf8'));
+    expect(sibling.references.wiki.path).toBe('./.wiki');
+  });
 });

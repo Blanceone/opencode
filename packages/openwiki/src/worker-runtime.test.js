@@ -45,6 +45,21 @@ describe('worker-runtime', () => {
     expect(launch.binary).toBe(node);
   });
 
+  test('refuses Electron-as-Node fallback', () => {
+    expect(() =>
+      resolveOpenWikiWorkerLaunch('/tmp/worker.mjs', {
+        execPath: 'C:\\fake\\OpenCodeDev.exe',
+        env: {
+          PATH: '',
+          Path: '',
+          OPENWIKI_NODE_BINARY: '',
+          OPENCODE_BUILDER_TOOLS: 'C:\\missing-builder-tools',
+        },
+        versions: { electron: '42.0.0' },
+      }),
+    ).toThrow(/Electron-as-Node is disabled|requires Node\.js/);
+  });
+
   test('resolves worker next to the module in source checkouts', () => {
     const worker = resolveOpenWikiWorkerPath();
     expect(fs.existsSync(worker)).toBe(true);

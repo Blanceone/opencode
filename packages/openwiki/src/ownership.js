@@ -57,7 +57,8 @@ export const classifyWikiOwnership = (projectDirectory) => {
     return {
       ownership: 'conflict',
       wikiRoot,
-      wikiExists: wikiHasMd || Boolean(marker),
+      // Content readiness — marker alone must not look "ready" for Update.
+      wikiExists: wikiHasMd,
       marker,
       consentRequired: true,
       foreignPaths,
@@ -68,7 +69,7 @@ export const classifyWikiOwnership = (projectDirectory) => {
     return {
       ownership: 'opencode-managed',
       wikiRoot,
-      wikiExists: true,
+      wikiExists: wikiHasMd,
       marker,
       consentRequired: false,
       foreignPaths: [],
@@ -80,7 +81,7 @@ export const classifyWikiOwnership = (projectDirectory) => {
     return {
       ownership: 'foreign',
       wikiRoot,
-      wikiExists: true,
+      wikiExists: wikiHasMd,
       marker: null,
       consentRequired: true,
       foreignPaths,

@@ -31,6 +31,7 @@ import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
+import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { reviewTooltipKeybind } from "../command-tooltip-keybind"
 import { useTitlebarRightMount } from "../titlebar"
 
@@ -146,7 +147,14 @@ export function SessionHeader() {
   const settings = useSettings()
   const sync = useSync()
   const terminal = useTerminal()
+  const dialog = useDialog()
   const { params, view } = useSessionLayout()
+
+  const openWiki = () => {
+    void import("@/components/dialog-openwiki").then((mod) => {
+      dialog.show(() => <mod.DialogOpenWiki />)
+    })
+  }
 
   const projectDirectory = createMemo(() => decode64(params.dir) ?? "")
   const project = createMemo(() => {
@@ -237,6 +245,10 @@ export function SessionHeader() {
   const v2ActionsState = createMemo<SessionHeaderV2ActionsState>(() => ({
     statusVisible: status(),
     statusLabel: language.t("status.popover.trigger"),
+    wikiVisible: !!projectDirectory(),
+    wikiLabel: language.t("command.wiki.open"),
+    wikiDescription: language.t("command.wiki.open.description"),
+    onWikiOpen: openWiki,
     reviewLabel: language.t("command.review.toggle"),
     reviewKeybind: reviewTooltipKeybind(command),
     reviewVisible: isDesktop(),
@@ -445,6 +457,18 @@ export function SessionHeader() {
                         <StatusPopover />
                       </Tooltip>
                     </Show>
+                    <Show when={projectDirectory()}>
+                      <Tooltip placement="bottom" value={language.t("command.wiki.open.description")}>
+                        <Button
+                          variant="ghost"
+                          class="titlebar-icon w-8 h-6 p-0 box-border shrink-0"
+                          onClick={openWiki}
+                          aria-label={language.t("command.wiki.open")}
+                        >
+                          <Icon size="small" name="bullet-list" />
+                        </Button>
+                      </Tooltip>
+                    </Show>
                     <TooltipKeybind
                       title={language.t("command.terminal.toggle")}
                       keybind={command.keybind("terminal.toggle")}
@@ -519,6 +543,10 @@ export function SessionHeader() {
 type SessionHeaderV2ActionsState = {
   statusVisible: boolean
   statusLabel: string
+  wikiVisible: boolean
+  wikiLabel: string
+  wikiDescription: string
+  onWikiOpen: () => void
   reviewLabel: string
   reviewKeybind: string[]
   reviewVisible: boolean
@@ -527,14 +555,25 @@ type SessionHeaderV2ActionsState = {
 }
 
 function SessionHeaderV2Actions(props: { state: SessionHeaderV2ActionsState }) {
-  const language = useLanguage()
-
   return (
     <div class="flex items-center gap-2">
       <Show when={props.state.statusVisible}>
         <Tooltip placement="bottom" value={props.state.statusLabel}>
           <StatusPopoverV2 />
         </Tooltip>
+      </Show>
+      <Show when={props.state.wikiVisible}>
+        <TooltipV2 class="shrink-0" placement="bottom" value={props.state.wikiDescription}>
+          <IconButtonV2
+            type="button"
+            variant="ghost-muted"
+            size="large"
+            class="!w-9 shrink-0"
+            onClick={props.state.onWikiOpen}
+            aria-label={props.state.wikiLabel}
+            icon={<IconV2 name="menu" />}
+          />
+        </TooltipV2>
       </Show>
       <Show when={props.state.reviewVisible}>
         <TooltipV2

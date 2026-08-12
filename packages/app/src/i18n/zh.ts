@@ -1284,4 +1284,12 @@ export const dict = {
   "dialog.openwiki.error.providerUnsupported": "提供商 {{provider}} 不支持 OpenWiki。",
   "dialog.openwiki.error.opencodeLoginRequired": "此 OpenCode 模型需要 Zen 登录，或改选可匿名使用的免费模型。",
   "dialog.openwiki.error.apiUnavailable": "OpenWiki 接口不可用。请更新后重启应用，或确认本地服务已启动。",
+  "dialog.openwiki.error.nodeRequired": "OpenWiki 需要本机 Node.js（better-sqlite3）。请安装 Node、设置 OPENWIKI_NODE_BINARY，或使用附带 resources/openwiki/node 的安装包。",
+  "dialog.openwiki.error.packageMissing": "当前安装缺少 OpenWiki 包。请重新安装应用，或重新执行 desktop prepare-openwiki。",
+  "dialog.openwiki.error.workerMissing": "当前安装缺少 OpenWiki worker。请重新安装应用，或重新执行 desktop prepare-openwiki。",
+  "dialog.openwiki.confirm.regenerate": "已有 OpenCode 托管的 wiki。要再次生成并覆盖吗？",
+  "dialog.openwiki.toast.completed.title": "OpenWiki 已就绪",
+  "dialog.openwiki.toast.completed.description": "Wiki 生成已完成。",
+  "dialog.openwiki.toast.failed.title": "OpenWiki 失败",
+  "dialog.openwiki.toast.failed.description": "{{message}}",
 } satisfies Partial<Record<Keys, string>>

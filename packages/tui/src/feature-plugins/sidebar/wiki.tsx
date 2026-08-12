@@ -1,6 +1,9 @@
 import type { TuiPlugin, TuiPluginApi } from "@opencode-ai/plugin/tui"
+import { OpenCode } from "@opencode-ai/openwiki/http-client"
 import type { BuiltinTuiPlugin } from "../builtins"
 import { createSignal, onCleanup, Show } from "solid-js"
+import { useLocal } from "../../context/local"
+import { useSDK } from "../../context/sdk"
 
 const id = "internal:sidebar-wiki"
 
@@ -9,7 +12,7 @@ type Status = {
   ownership?: string
   consentRequired?: boolean
   hasLogin?: boolean
-  foreignPaths?: string[]
+  foreignPaths?: readonly string[]
   model?: { providerID?: string; modelID?: string } | null
   job?: { stage?: string; detail?: string; error?: { message?: string; code?: string } } | null
 }
@@ -17,22 +20,40 @@ type Status = {
 const ACTIVE = new Set(["queued", "preparing", "mapping-model", "running", "writing"])
 
 function View(props: { api: TuiPluginApi }) {
+  const sdk = useSDK()
+  const local = useLocal()
   const [open, setOpen] = createSignal(true)
   const [status, setStatus] = createSignal<Status | null>(null)
   const [busy, setBusy] = createSignal(false)
   const [error, setError] = createSignal<string | null>(null)
   const theme = () => props.api.theme.current
 
+  const selectedModel = () => {
+    const model = local.model.current()
+    if (!model?.providerID || !model?.modelID) return null
+    return { providerID: model.providerID, modelID: model.modelID }
+  }
+
+  const openwiki = () =>
+    OpenCode.make({
+      baseUrl: sdk.url,
+      fetch: sdk.fetch,
+    }).openwikis
+
+  const location = () => {
+    const directory = sdk.directory ?? props.api.state.path.directory
+    return directory ? { directory } : undefined
+  }
+
   const refresh = async () => {
     try {
-      const client = props.api.client as any
-      if (client?.openwikis?.status) {
-        const res = await client.openwikis.status({})
-        setStatus(res?.data ?? res)
-        setError(null)
-        return
-      }
-      setError("OpenWiki API unavailable — restart server after client generate")
+      const model = selectedModel()
+      const res = await openwiki().status({
+        location: location(),
+        model: model ? `${model.providerID}/${model.modelID}` : undefined,
+      })
+      setStatus(res.data)
+      setError(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     }
@@ -46,13 +67,17 @@ function View(props: { api: TuiPluginApi }) {
     setBusy(true)
     setError(null)
     try {
-      const client = props.api.client as any
-      if (!client?.openwikis?.[command]) {
-        setError("OpenWiki client methods missing")
-        return
+      const api = openwiki()
+      const loc = location()
+      if (command === "cancel") {
+        await api.cancel({ location: loc })
+      } else {
+        const model = selectedModel()
+        await api[command]({
+          location: loc,
+          ...(model ? { model } : {}),
+        })
       }
-      if (command === "cancel") await client.openwikis.cancel({})
-      else await client.openwikis[command]({})
       await refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -65,12 +90,7 @@ function View(props: { api: TuiPluginApi }) {
     setBusy(true)
     setError(null)
     try {
-      const client = props.api.client as any
-      if (!client?.openwikis?.consent) {
-        setError("OpenWiki consent API missing")
-        return
-      }
-      await client.openwikis.consent({ consent: true, consentAction })
+      await openwiki().consent({ location: location(), consent: true, consentAction })
       await refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
@@ -80,6 +100,8 @@ function View(props: { api: TuiPluginApi }) {
   }
 
   const modelLabel = () => {
+    const selected = selectedModel()
+    if (selected) return `model: ${selected.providerID}/${selected.modelID}`
     const model = status()?.model
     if (!model?.providerID || !model?.modelID) return "model: (OpenCode current)"
     return `model: ${model.providerID}/${model.modelID}`

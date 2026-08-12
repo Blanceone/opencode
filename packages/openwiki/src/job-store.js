@@ -69,6 +69,16 @@ export const createJob = (input) => {
  * @param {string} directory
  * @param {Partial<OpenWikiJob>} patch
  */
+const DETAIL_MAX = 240;
+
+/** @param {string | undefined} detail */
+const truncateDetail = (detail) => {
+  if (typeof detail !== 'string') return detail;
+  const compact = detail.replace(/\s+/g, ' ').trim();
+  if (compact.length <= DETAIL_MAX) return compact;
+  return `${compact.slice(0, DETAIL_MAX)}…`;
+};
+
 export const updateJob = (directory, patch) => {
   const key = jobKey(directory);
   const current = jobsByDirectory.get(key);
@@ -76,6 +86,9 @@ export const updateJob = (directory, patch) => {
   const next = {
     ...current,
     ...patch,
+    ...(Object.prototype.hasOwnProperty.call(patch, 'detail')
+      ? { detail: truncateDetail(patch.detail) }
+      : {}),
     updatedAt: Date.now(),
   };
   jobsByDirectory.set(key, next);

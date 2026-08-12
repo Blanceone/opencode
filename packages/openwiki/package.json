@@ -7,13 +7,17 @@
   "type": "module",
   "license": "MIT",
   "exports": {
-    ".": "./src/index.js"
+    ".": "./src/index.js",
+    "./http-client": "./src/http-client.js"
   },
   "scripts": {
     "openwiki": "bun run src/cli.ts",
     "prepare:openwiki": "node ./script/prepare-openwiki.mjs",
     "typecheck": "echo 'openwiki adapter is JS for M1; skip'",
     "test": "bun test"
+  },
+  "dependencies": {
+    "@opencode-ai/client": "workspace:*"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
