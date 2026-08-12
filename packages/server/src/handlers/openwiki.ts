@@ -61,6 +61,24 @@ export const OpenWikiHandler = HttpApiBuilder.group(Api, "server.openwiki", (han
       )
       .handle("openwiki.update", (ctx) => response(mapError(OpenWiki.Service.use((ow) => ow.update(ctx.payload)))))
       .handle("openwiki.job", () => response(OpenWiki.Service.use((ow) => ow.job())))
-      .handle("openwiki.cancel", () => response(mapError(OpenWiki.Service.use((ow) => ow.cancel())))),
+      .handle("openwiki.cancel", () => response(mapError(OpenWiki.Service.use((ow) => ow.cancel()))))
+      .handle("openwiki.referenceSources.list", () =>
+        response(mapError(OpenWiki.Service.use((ow) => ow.referenceSourcesList()))),
+      )
+      .handle("openwiki.referenceSources.add", (ctx) =>
+        response(mapError(OpenWiki.Service.use((ow) => ow.referenceSourcesAdd(ctx.payload)))),
+      )
+      .handle("openwiki.referenceSources.remove", (ctx) =>
+        response(mapError(OpenWiki.Service.use((ow) => ow.referenceSourcesRemove(ctx.payload)))),
+      )
+      .handle("openwiki.format.draft", () => response(mapError(OpenWiki.Service.use((ow) => ow.formatDraft()))))
+      .handle("openwiki.format.parse", (ctx) =>
+        response(mapError(OpenWiki.Service.use((ow) => ow.formatParse(ctx.payload)))),
+      )
+      .handle("openwiki.format.merge", (ctx) =>
+        response(mapError(OpenWiki.Service.use((ow) => ow.formatMerge(ctx.payload)))),
+      )
+      .handle("openwiki.format.reset", () => response(mapError(OpenWiki.Service.use((ow) => ow.formatReset()))))
+      .handle("openwiki.export.docx", () => response(mapError(OpenWiki.Service.use((ow) => ow.exportDocx())))),
   ),
 )

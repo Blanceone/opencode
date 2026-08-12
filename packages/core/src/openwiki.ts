@@ -5,13 +5,21 @@ import { Context, Effect, Layer, Schema } from "effect"
 import { makeLocationNode } from "./effect/app-node"
 import { Location } from "./location"
 import {
+  addReferenceSources,
   applyConsentIfNeeded,
+  buildWikiDocxExport,
   cancelOpenWikiJob,
   FORMAT_PRESET_IDS,
   getJob,
   getOpenWikiStatus,
   getPresetBodies,
+  listReferenceSources,
+  mergeFormatDraft,
   readFormatBundle,
+  readFormatDraft,
+  removeReferenceSource,
+  resetFormatBundle,
+  startFormatParseJob,
   startOpenWikiJob,
   writeFormatBundle,
 } from "@opencode-ai/openwiki"
@@ -24,6 +32,14 @@ export const FormatBundle = OpenWikiSchema.FormatBundle
 export type FormatBundle = OpenWikiSchema.FormatBundle
 export const FormatPreset = OpenWikiSchema.FormatPreset
 export type FormatPreset = OpenWikiSchema.FormatPreset
+export const ReferenceSourcesList = OpenWikiSchema.ReferenceSourcesList
+export type ReferenceSourcesList = OpenWikiSchema.ReferenceSourcesList
+export const FormatDraftEnvelope = OpenWikiSchema.FormatDraftEnvelope
+export type FormatDraftEnvelope = OpenWikiSchema.FormatDraftEnvelope
+export const FormatMergeResult = OpenWikiSchema.FormatMergeResult
+export type FormatMergeResult = OpenWikiSchema.FormatMergeResult
+export const DocxExport = OpenWikiSchema.DocxExport
+export type DocxExport = OpenWikiSchema.DocxExport
 
 export class AdapterError extends Schema.TaggedErrorClass<AdapterError>()("OpenWikiAdapterError", {
   message: Schema.String,
@@ -53,6 +69,10 @@ const decodeStatus = (raw: unknown) => Schema.decodeUnknownSync(Status)(asJson(r
 const decodeJob = (raw: unknown) => Schema.decodeUnknownSync(Job)(asJson(raw))
 const decodeFormat = (raw: unknown) => Schema.decodeUnknownSync(FormatBundle)(asJson(raw))
 const decodeJobOrNull = (raw: unknown) => (raw == null ? null : decodeJob(raw))
+const decodeRefs = (raw: unknown) => Schema.decodeUnknownSync(ReferenceSourcesList)(asJson(raw))
+const decodeDraftEnvelope = (raw: unknown) => Schema.decodeUnknownSync(FormatDraftEnvelope)(asJson(raw))
+const decodeMerge = (raw: unknown) => Schema.decodeUnknownSync(FormatMergeResult)(asJson(raw))
+const decodeDocx = (raw: unknown) => Schema.decodeUnknownSync(DocxExport)(asJson(raw))
 
 export interface Interface {
   readonly status: (input?: {
@@ -67,6 +87,18 @@ export interface Interface {
   readonly update: (input: OpenWikiSchema.StartJobInput) => Effect.Effect<Job, Error>
   readonly job: () => Effect.Effect<Job | null, never>
   readonly cancel: () => Effect.Effect<Job | null, Error>
+  readonly referenceSourcesList: () => Effect.Effect<ReferenceSourcesList, Error>
+  readonly referenceSourcesAdd: (
+    input: OpenWikiSchema.ReferenceSourcesAddInput,
+  ) => Effect.Effect<ReferenceSourcesList, Error>
+  readonly referenceSourcesRemove: (
+    input: OpenWikiSchema.ReferenceSourcesRemoveInput,
+  ) => Effect.Effect<ReferenceSourcesList, Error>
+  readonly formatDraft: () => Effect.Effect<FormatDraftEnvelope, Error>
+  readonly formatParse: (input: OpenWikiSchema.StartJobInput) => Effect.Effect<Job, Error>
+  readonly formatMerge: (input: OpenWikiSchema.StartJobInput) => Effect.Effect<FormatMergeResult, Error>
+  readonly formatReset: () => Effect.Effect<FormatBundle, Error>
+  readonly exportDocx: () => Effect.Effect<DocxExport, Error>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/v2/OpenWiki") {}
@@ -75,7 +107,9 @@ const layer = Layer.effect(
   Service,
   Effect.gen(function* () {
     const location = yield* Location.Service
-    const directory = () => location.project.directory
+    // Use the opened workspace directory, not project.directory.
+    // For non-git folders Project.resolve falls back to the drive root (e.g. D:\).
+    const directory = () => location.directory
 
     return Service.of({
       status: (input) =>
@@ -113,7 +147,6 @@ const layer = Layer.effect(
           startOpenWikiJob({
             directory: directory(),
             command: "init",
-            // undefined → adapter follows OpenCode current model
             model: input.model,
             consent: input.consent,
             consentAction: input.consentAction,
@@ -133,6 +166,41 @@ const layer = Layer.effect(
         ),
       job: () => Effect.sync(() => decodeJobOrNull(getJob(directory()))),
       cancel: () => wrap(cancelOpenWikiJob(directory()).then(decodeJobOrNull)),
+      referenceSourcesList: () => wrap(listReferenceSources(directory()).then(decodeRefs)),
+      referenceSourcesAdd: (input) =>
+        wrap(
+          addReferenceSources(directory(), {
+            files: input.files.map((file) => ({
+              name: file.name,
+              contentBase64: file.contentBase64,
+              confirmLarge: file.confirmLarge,
+            })),
+            confirmLarge: input.confirmLarge,
+          }).then(decodeRefs),
+        ),
+      referenceSourcesRemove: (input) => wrap(removeReferenceSource(directory(), input.id).then(decodeRefs)),
+      formatDraft: () =>
+        wrap(
+          readFormatDraft(directory()).then((draft) => decodeDraftEnvelope({ draft })),
+        ),
+      formatParse: (input) =>
+        wrap(
+          startFormatParseJob({
+            directory: directory(),
+            model: input.model,
+            openWikiModelOverride: input.openWikiModelOverride,
+          }).then(decodeJob),
+        ),
+      formatMerge: (input) =>
+        wrap(
+          mergeFormatDraft({
+            directory: directory(),
+            model: input.model,
+            openWikiModelOverride: input.openWikiModelOverride,
+          }).then(decodeMerge),
+        ),
+      formatReset: () => wrap(resetFormatBundle(directory()).then(decodeFormat)),
+      exportDocx: () => wrap(buildWikiDocxExport(directory()).then(decodeDocx)),
     })
   }),
 )

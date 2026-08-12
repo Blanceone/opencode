@@ -56,6 +56,21 @@ type FormatPreset = {
   format: string
 }
 
+type ReferenceSourceFile = {
+  id: string
+  name: string
+  size: number
+  extension: string
+  modifiedAt: number
+}
+
+type FormatDraft = {
+  instructions: string
+  format: string
+  warnings: string[]
+  sourceFiles: string[]
+}
+
 const PRESET_IDS = ["openwiki-default", "architecture-module", "api-service", "custom"] as const
 
 const ACTIVE_STAGES = new Set(["queued", "preparing", "mapping-model", "running", "writing"])
@@ -63,12 +78,42 @@ const DETAIL_DISPLAY_MAX = 160
 const POLL_ACTIVE_MS = 1000
 const POLL_IDLE_MS = 4000
 const POLL_BACKOFF_MAX_MS = 30_000
+const REFERENCE_CONFIRM_BYTES = 10 * 1024 * 1024
+const REFERENCE_ACCEPT =
+  ".md,.doc,.docx,text/markdown,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 function truncateDetail(detail: string | undefined) {
   if (!detail) return undefined
   const compact = detail.replace(/\s+/g, " ").trim()
   if (compact.length <= DETAIL_DISPLAY_MAX) return compact
   return `${compact.slice(0, DETAIL_DISPLAY_MAX)}…`
+}
+
+function fileToBase64(file: File) {
+  return file.arrayBuffer().then((buffer) => {
+    const bytes = new Uint8Array(buffer)
+    let binary = ""
+    const chunk = 0x8000
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk))
+    }
+    return btoa(binary)
+  })
+}
+
+function downloadBase64File(fileName: string, contentBase64: string, mime: string) {
+  const binary = atob(contentBase64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  const blob = new Blob([bytes], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement("a")
+  anchor.href = url
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  URL.revokeObjectURL(url)
 }
 
 function unwrapData<T>(json: { data?: T } | T): T {
@@ -118,11 +163,14 @@ export const OpenWikiPanel: Component = () => {
   const [presets, setPresets] = createSignal<FormatPreset[]>([])
   const [error, setError] = createSignal<string | null>(null)
   const [busy, setBusy] = createSignal(false)
-  const [activeAction, setActiveAction] = createSignal<"generate" | "update" | null>(null)
+  const [activeAction, setActiveAction] = createSignal<"generate" | "update" | "parse" | "export" | null>(null)
   const [pollPaused, setPollPaused] = createSignal(false)
   const [pollDelayMs, setPollDelayMs] = createSignal(POLL_IDLE_MS)
   const [lastNotifiedStage, setLastNotifiedStage] = createSignal<string | null>(null)
   const [filesRefreshToken, setFilesRefreshToken] = createSignal(0)
+  const [references, setReferences] = createSignal<ReferenceSourceFile[]>([])
+  const [draft, setDraft] = createSignal<FormatDraft | null>(null)
+  let referenceInput: HTMLInputElement | undefined
   const [splitRoot, setSplitRoot] = createSignal<HTMLDivElement>()
   const [splitWidth, setSplitWidth] = createSignal(0)
   const desktopSplit = createMediaQuery("(min-width: 1024px)")
@@ -168,7 +216,7 @@ export const OpenWikiPanel: Component = () => {
 
   const directory = () => sdk().directory
 
-  const workspacePath = createMemo(() => status()?.projectDirectory || directory())
+  const workspacePath = createMemo(() => directory())
 
   const modelRef = createMemo(() => {
     const model = local.model.current()
@@ -222,6 +270,7 @@ export const OpenWikiPanel: Component = () => {
       fetch: platform.fetch,
       username: server.username,
       password: server.password,
+      directory: directory(),
     })
   }
 
@@ -409,6 +458,42 @@ export const OpenWikiPanel: Component = () => {
     format: data.format,
   })
 
+  const toReferenceFiles = (
+    data: {
+      files: ReadonlyArray<{
+        id: string
+        name: string
+        size: number | string
+        extension: string
+        modifiedAt: number | string
+      }>
+    },
+  ): ReferenceSourceFile[] =>
+    data.files.map((file) => ({
+      id: file.id,
+      name: file.name,
+      size: Number(file.size),
+      extension: file.extension,
+      modifiedAt: Number(file.modifiedAt),
+    }))
+
+  const toFormatDraft = (
+    data: null | undefined | {
+      instructions: string
+      format: string
+      warnings?: ReadonlyArray<string>
+      sourceFiles?: ReadonlyArray<string>
+    },
+  ): FormatDraft | null => {
+    if (!data) return null
+    return {
+      instructions: data.instructions,
+      format: data.format,
+      warnings: [...(data.warnings ?? [])],
+      sourceFiles: [...(data.sourceFiles ?? [])],
+    }
+  }
+
   const presetLabel = (id: string) => {
     if (id === "openwiki-default") return language.t("dialog.openwiki.format.preset.openwiki-default")
     if (id === "architecture-module") return language.t("dialog.openwiki.format.preset.architecture-module")
@@ -450,6 +535,20 @@ export const OpenWikiPanel: Component = () => {
           async () => (await openwikiFetch<FormatPreset[]>("/api/openwiki/format/presets")) ?? [],
         ),
       )
+      const nextRefs = await withOpenWiki(
+        async () => toReferenceFiles(unwrapOpenWikiData(await api.referenceSourcesList({ location }))),
+        async () =>
+          toReferenceFiles(await openwikiFetch<{ files: ReferenceSourceFile[] }>("/api/openwiki/reference-sources")),
+      )
+      setReferences(nextRefs)
+      const nextDraft = await withOpenWiki(
+        async () => toFormatDraft(unwrapOpenWikiData(await api.formatDraft({ location })).draft),
+        async () =>
+          toFormatDraft(
+            (await openwikiFetch<{ draft: FormatDraft | null }>("/api/openwiki/format/draft")).draft,
+          ),
+      )
+      setDraft(nextDraft)
       setError(formatFailure(nextStatus.job?.error))
       notifyTerminalJob(nextStatus.job?.stage, nextStatus.job?.error)
       setPollPaused(false)
@@ -593,6 +692,235 @@ export const OpenWikiPanel: Component = () => {
     }
   }
 
+  const importReferenceFiles = async (fileList: FileList | File[]) => {
+    const files = Array.from(fileList).filter((file) => /\.(md|doc|docx)$/i.test(file.name))
+    if (files.length === 0) {
+      setError(language.t("dialog.openwiki.references.typeHint"))
+      return
+    }
+    const needsConfirm = files.some((file) => file.size > REFERENCE_CONFIRM_BYTES)
+    if (
+      needsConfirm &&
+      typeof globalThis.confirm === "function" &&
+      !globalThis.confirm(language.t("dialog.openwiki.references.confirmLarge"))
+    ) {
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const payload = {
+        confirmLarge: needsConfirm,
+        files: await Promise.all(
+          files.map(async (file) => ({
+            name: file.name,
+            contentBase64: await fileToBase64(file),
+            confirmLarge: file.size > REFERENCE_CONFIRM_BYTES,
+          })),
+        ),
+      }
+      const location = openWikiLocation(directory())
+      const api = openwikiApi()
+      const listed = await withOpenWiki(
+        async () => toReferenceFiles(unwrapOpenWikiData(await api.referenceSourcesAdd({ location, ...payload }))),
+        async () =>
+          toReferenceFiles(
+            await openwikiFetch<{ files: ReferenceSourceFile[] }>("/api/openwiki/reference-sources", {
+              method: "POST",
+              body: JSON.stringify(payload),
+            }),
+          ),
+      )
+      setReferences(listed)
+      showToast({
+        title: language.t("dialog.openwiki.references.title"),
+        description: language.t("dialog.openwiki.references.imported", { count: files.length }),
+        variant: "success",
+      })
+    } catch (e) {
+      setError(formatCaughtError(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const removeReference = async (id: string) => {
+    setBusy(true)
+    setError(null)
+    try {
+      const location = openWikiLocation(directory())
+      const api = openwikiApi()
+      const listed = await withOpenWiki(
+        async () => toReferenceFiles(unwrapOpenWikiData(await api.referenceSourcesRemove({ location, id }))),
+        async () =>
+          toReferenceFiles(
+            await openwikiFetch<{ files: ReferenceSourceFile[] }>("/api/openwiki/reference-sources/remove", {
+              method: "POST",
+              body: JSON.stringify({ id }),
+            }),
+          ),
+      )
+      setReferences(listed)
+    } catch (e) {
+      setError(formatCaughtError(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const parseReferences = async () => {
+    if (working() || references().length === 0) return
+    setBusy(true)
+    setActiveAction("parse")
+    setError(null)
+    try {
+      const selected = modelRef()
+      const location = openWikiLocation(directory())
+      const api = openwikiApi()
+      const body = selected ? { model: selected } : {}
+      await withOpenWiki(
+        async () => api.formatParse({ location, ...body }),
+        async () =>
+          openwikiFetch("/api/openwiki/format/parse", {
+            method: "POST",
+            body: JSON.stringify(body),
+          }),
+      )
+      await refresh()
+    } catch (e) {
+      setError(formatCaughtError(e))
+      await refresh()
+    } finally {
+      setBusy(false)
+      if (!ACTIVE_STAGES.has(status()?.job?.stage || "")) setActiveAction(null)
+    }
+  }
+
+  const mergeDraft = async () => {
+    if (working() || !draft()) return
+    setBusy(true)
+    setError(null)
+    try {
+      const selected = modelRef()
+      const location = openWikiLocation(directory())
+      const api = openwikiApi()
+      const body = selected ? { model: selected } : {}
+      const result = await withOpenWiki(
+        async () => {
+          const data = unwrapOpenWikiData(await api.formatMerge({ location, ...body }))
+          return {
+            bundle: toFormatBundle(data.bundle),
+            draft: toFormatDraft(data.draft)!,
+          }
+        },
+        async () => {
+          const data = await openwikiFetch<{
+            bundle: FormatBundle
+            draft: FormatDraft
+          }>("/api/openwiki/format/merge", {
+            method: "POST",
+            body: JSON.stringify(body),
+          })
+          return {
+            bundle: toFormatBundle(data.bundle),
+            draft: toFormatDraft(data.draft)!,
+          }
+        },
+      )
+      setFormat(result.bundle)
+      setFormatDirty(false)
+      setFormatEpoch((n) => n + 1)
+      setDraft(result.draft)
+      showToast({
+        title: language.t("dialog.openwiki.format.title"),
+        description: language.t("dialog.openwiki.merge.done"),
+        variant: "success",
+      })
+    } catch (e) {
+      setError(formatCaughtError(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const resetFormat = async () => {
+    if (
+      typeof globalThis.confirm === "function" &&
+      !globalThis.confirm(language.t("dialog.openwiki.format.reset.confirm"))
+    ) {
+      return
+    }
+    setBusy(true)
+    setError(null)
+    try {
+      const location = openWikiLocation(directory())
+      const api = openwikiApi()
+      setFormat(
+        await withOpenWiki(
+          async () => toFormatBundle(unwrapOpenWikiData(await api.formatReset({ location }))),
+          async () =>
+            openwikiFetch<FormatBundle>("/api/openwiki/format/reset", {
+              method: "POST",
+              body: "{}",
+            }),
+        ),
+      )
+      setFormatDirty(false)
+      setFormatEpoch((n) => n + 1)
+    } catch (e) {
+      setError(formatCaughtError(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const exportDocx = async () => {
+    if (working() || !status()?.wikiExists) return
+    setBusy(true)
+    setActiveAction("export")
+    setError(null)
+    try {
+      const location = openWikiLocation(directory())
+      const api = openwikiApi()
+      const payload = await withOpenWiki(
+        async () => {
+          const data = unwrapOpenWikiData(await api.exportDocx({ location }))
+          return data.files.map((file) => ({
+            fileName: file.fileName,
+            contentBase64: file.contentBase64,
+          }))
+        },
+        async () =>
+          (
+            await openwikiFetch<{
+              files: Array<{ fileName: string; contentBase64: string }>
+            }>("/api/openwiki/export/docx", { method: "POST", body: "{}" })
+          ).files,
+      )
+      if (!payload.length) {
+        setError(language.t("dialog.openwiki.export.empty"))
+        return
+      }
+      for (const file of payload) {
+        downloadBase64File(
+          file.fileName,
+          file.contentBase64,
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+      }
+      showToast({
+        title: language.t("dialog.openwiki.action.exportDocx"),
+        description: language.t("dialog.openwiki.export.done", { count: payload.length }),
+        variant: "success",
+      })
+    } catch (e) {
+      setError(formatCaughtError(e))
+    } finally {
+      setBusy(false)
+      setActiveAction(null)
+    }
+  }
+
   onMount(() => {
     const ref = modelRef()
     if (ref) syncedModelKey = `${ref.providerID}/${ref.modelID}`
@@ -629,7 +957,7 @@ export const OpenWikiPanel: Component = () => {
         class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden"
       >
         <section
-          class="relative flex min-h-0 min-w-0 flex-col overflow-hidden border-b border-border-weak-base lg:border-b-0 lg:shrink-0"
+          class="relative flex min-h-0 min-w-0 flex-col border-b border-border-weak-base lg:border-b-0 lg:shrink-0"
           style={
             desktopSplit()
               ? {
@@ -639,7 +967,8 @@ export const OpenWikiPanel: Component = () => {
               : undefined
           }
         >
-          <div class="flex shrink-0 flex-col gap-3 border-b border-border-weak-base px-4 py-3 md:px-5">
+          <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            <div class="flex shrink-0 flex-col gap-3 border-b border-border-weak-base px-4 py-3 md:px-5">
             <Show when={status()} fallback={<div class="text-12-regular text-text-weaker">{language.t("common.loading")}</div>}>
               {(s) => (
                 <div class="flex flex-col gap-3">
@@ -761,6 +1090,19 @@ export const OpenWikiPanel: Component = () => {
               <Button
                 size="normal"
                 variant="ghost"
+                disabled={busy() || !status()?.wikiExists || working()}
+                onClick={() => void exportDocx()}
+              >
+                <Show when={activeAction() === "export"} fallback={language.t("dialog.openwiki.action.exportDocx")}>
+                  <span class="inline-flex items-center gap-1.5">
+                    <Spinner class="size-3.5" />
+                    {language.t("dialog.openwiki.export.preparing")}
+                  </span>
+                </Show>
+              </Button>
+              <Button
+                size="normal"
+                variant="ghost"
                 disabled={busy()}
                 onClick={() => {
                   setFilesRefreshToken((n) => n + 1)
@@ -785,12 +1127,34 @@ export const OpenWikiPanel: Component = () => {
               }
             >
               {(bundle) => (
-                <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-                  <div class="flex shrink-0 flex-wrap items-end gap-2">
-                    <label class="flex w-full min-w-[180px] max-w-xs flex-col gap-1.5 text-12-regular sm:w-auto sm:min-w-[220px]">
-                      <span class="text-text-weak">{language.t("dialog.openwiki.format.preset")}</span>
+                <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-5">
+                  <div class="flex shrink-0 flex-wrap items-center gap-2">
+                    <Button
+                      size="normal"
+                      variant="secondary"
+                      disabled={busy() || !!status()?.consentRequired || !formatDirty()}
+                      onClick={() =>
+                        void saveFormat({
+                          presetId: bundle().presetId,
+                          instructions: bundle().instructions,
+                          format: bundle().format,
+                        })
+                      }
+                    >
+                      {language.t("common.save")}
+                    </Button>
+                    <Button
+                      size="normal"
+                      variant="ghost"
+                      disabled={busy() || !!status()?.consentRequired}
+                      onClick={() => void resetFormat()}
+                    >
+                      {language.t("dialog.openwiki.format.reset")}
+                    </Button>
+                    <label class="ms-auto flex min-w-[160px] max-w-xs flex-col gap-1 text-11-regular text-text-weaker">
+                      <span>{language.t("dialog.openwiki.format.preset")}</span>
                       <select
-                        class="h-9 w-full rounded-md border border-border-weak-base bg-transparent px-3 text-12-regular"
+                        class="h-8 w-full rounded-md border border-border-weak-base bg-transparent px-2 text-12-regular text-text-weak"
                         value={bundle().presetId}
                         disabled={busy() || !!status()?.consentRequired}
                         onChange={(event) => {
@@ -803,26 +1167,12 @@ export const OpenWikiPanel: Component = () => {
                         </For>
                       </select>
                     </label>
-                    <Button
-                      size="normal"
-                      variant="secondary"
-                      disabled={busy() || !!status()?.consentRequired}
-                      onClick={() =>
-                        void saveFormat({
-                          presetId: bundle().presetId,
-                          instructions: bundle().instructions,
-                          format: bundle().format,
-                        })
-                      }
-                    >
-                      {language.t("common.save")}
-                    </Button>
                   </div>
 
-                  <label class="flex min-h-[180px] min-w-0 flex-1 flex-col gap-1.5 text-12-regular">
+                  <label class="flex min-h-[160px] min-w-0 flex-1 flex-col gap-1.5 text-12-regular">
                     <span class="shrink-0 text-text-weak">{language.t("dialog.openwiki.format.instructions")}</span>
                     <textarea
-                      class="min-h-[160px] w-full flex-1 resize-y overflow-auto rounded-lg border border-border-weak-base bg-transparent px-3 py-3 font-mono text-12-regular leading-5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong-base"
+                      class="min-h-[140px] w-full flex-1 resize-y overflow-auto rounded-lg border border-border-weak-base bg-transparent px-3 py-3 font-mono text-12-regular leading-5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong-base"
                       value={bundle().instructions}
                       disabled={busy() || !!status()?.consentRequired}
                       onInput={(event) => {
@@ -835,10 +1185,10 @@ export const OpenWikiPanel: Component = () => {
                       }}
                     />
                   </label>
-                  <label class="flex min-h-[220px] min-w-0 flex-[1.4] flex-col gap-1.5 text-12-regular">
+                  <label class="flex min-h-[200px] min-w-0 flex-[1.2] flex-col gap-1.5 text-12-regular">
                     <span class="shrink-0 text-text-weak">{language.t("dialog.openwiki.format.body")}</span>
                     <textarea
-                      class="min-h-[200px] w-full flex-1 resize-y overflow-auto rounded-lg border border-border-weak-base bg-transparent px-3 py-3 font-mono text-12-regular leading-5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong-base"
+                      class="min-h-[180px] w-full flex-1 resize-y overflow-auto rounded-lg border border-border-weak-base bg-transparent px-3 py-3 font-mono text-12-regular leading-5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-border-strong-base"
                       value={bundle().format}
                       disabled={busy() || !!status()?.consentRequired}
                       onInput={(event) => {
@@ -851,9 +1201,132 @@ export const OpenWikiPanel: Component = () => {
                       }}
                     />
                   </label>
+
+                  <div class="flex shrink-0 flex-col gap-2 border-t border-border-weak-base pt-4">
+                    <div class="text-12-medium text-text-weak">{language.t("dialog.openwiki.references.title")}</div>
+                    <div class="text-11-regular text-text-weaker">{language.t("dialog.openwiki.references.typeHint")}</div>
+                    <div class="text-11-regular text-text-weaker">{language.t("dialog.openwiki.references.limitHint")}</div>
+                    <div class="flex flex-wrap gap-2">
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        disabled={busy() || !!status()?.consentRequired}
+                        onClick={() => referenceInput?.click()}
+                      >
+                        {language.t("dialog.openwiki.references.import")}
+                      </Button>
+                      <input
+                        ref={(el) => {
+                          referenceInput = el
+                        }}
+                        type="file"
+                        class="hidden"
+                        multiple
+                        accept={REFERENCE_ACCEPT}
+                        onChange={(event) => {
+                          const list = event.currentTarget.files
+                          event.currentTarget.value = ""
+                          if (list?.length) void importReferenceFiles(list)
+                        }}
+                      />
+                    </div>
+                    <Show
+                      when={references().length > 0}
+                      fallback={
+                        <div class="text-11-regular text-text-weaker">{language.t("dialog.openwiki.references.empty")}</div>
+                      }
+                    >
+                      <ul class="flex flex-col gap-1.5">
+                        <For each={references()}>
+                          {(file) => (
+                            <li class="flex items-center gap-2 rounded-md border border-border-weak-base px-2.5 py-1.5 text-12-regular">
+                              <span class="min-w-0 flex-1 truncate" title={file.name}>
+                                {file.name}
+                              </span>
+                              <Button
+                                size="small"
+                                variant="ghost"
+                                disabled={busy() || !!status()?.consentRequired}
+                                onClick={() => void removeReference(file.id)}
+                              >
+                                {language.t("dialog.openwiki.references.remove")}
+                              </Button>
+                            </li>
+                          )}
+                        </For>
+                      </ul>
+                    </Show>
+                  </div>
+
+                  <div class="flex shrink-0 flex-col gap-2 border-t border-border-weak-base pt-4">
+                    <div class="text-12-medium text-text-weak">{language.t("dialog.openwiki.parse.title")}</div>
+                    <div class="text-11-regular text-text-weaker">{language.t("dialog.openwiki.parse.info")}</div>
+                    <div class="flex flex-wrap gap-2">
+                      <Button
+                        size="small"
+                        variant="secondary"
+                        disabled={
+                          working() ||
+                          !!status()?.consentRequired ||
+                          status()?.hasLogin === false ||
+                          references().length === 0
+                        }
+                        onClick={() => void parseReferences()}
+                      >
+                        <Show when={activeAction() === "parse"} fallback={language.t("dialog.openwiki.parse.action")}>
+                          <span class="inline-flex items-center gap-1.5">
+                            <Spinner class="size-3" />
+                            {language.t("dialog.openwiki.parse.parsing")}
+                          </span>
+                        </Show>
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="ghost"
+                        disabled={working() || !!status()?.consentRequired || !draft()}
+                        onClick={() => void mergeDraft()}
+                      >
+                        {language.t("dialog.openwiki.merge.action")}
+                      </Button>
+                    </div>
+                    <Show
+                      when={draft()}
+                      fallback={
+                        <div class="text-11-regular text-text-weaker">{language.t("dialog.openwiki.draft.empty")}</div>
+                      }
+                    >
+                      {(d) => (
+                        <div class="flex flex-col gap-2">
+                          <div class="text-12-medium text-text-weak">{language.t("dialog.openwiki.draft.title")}</div>
+                          <Show when={d().warnings.length > 0}>
+                            <div class="text-11-regular text-text-danger">
+                              {language.t("dialog.openwiki.draft.warnings")}: {d().warnings.join(" · ")}
+                            </div>
+                          </Show>
+                          <label class="flex flex-col gap-1 text-12-regular">
+                            <span class="text-text-weak">{language.t("dialog.openwiki.draft.instructions")}</span>
+                            <textarea
+                              class="min-h-[100px] w-full resize-y rounded-lg border border-border-weak-base bg-transparent px-3 py-2 font-mono text-12-regular leading-5"
+                              value={d().instructions}
+                              readOnly
+                            />
+                          </label>
+                          <label class="flex flex-col gap-1 text-12-regular">
+                            <span class="text-text-weak">{language.t("dialog.openwiki.draft.format")}</span>
+                            <textarea
+                              class="min-h-[120px] w-full resize-y rounded-lg border border-border-weak-base bg-transparent px-3 py-2 font-mono text-12-regular leading-5"
+                              value={d().format}
+                              readOnly
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </Show>
+                  </div>
                 </div>
               )}
             </Show>
+          </div>
           </div>
 
           <Show when={desktopSplit()}>

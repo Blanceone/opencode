@@ -16,6 +16,7 @@ export function createOpenWikiClient(input: {
   fetch?: typeof globalThis.fetch
   username?: string
   password?: string
+  directory?: string
 }): OpenWikiClient {
   const headers: Record<string, string> = {}
   if (input.password) {
@@ -23,6 +24,9 @@ export function createOpenWikiClient(input: {
       username: input.username,
       password: input.password,
     })}`
+  }
+  if (input.directory) {
+    headers["x-opencode-directory"] = encodeURIComponent(input.directory)
   }
   return OpenCode.make({
     baseUrl: input.baseUrl,

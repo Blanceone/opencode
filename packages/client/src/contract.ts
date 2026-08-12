@@ -52,6 +52,14 @@ export const endpointNames = {
   "openwiki.format.get": "formatGet",
   "openwiki.format.put": "formatPut",
   "openwiki.format.presets": "formatPresets",
+  "openwiki.referenceSources.list": "referenceSourcesList",
+  "openwiki.referenceSources.add": "referenceSourcesAdd",
+  "openwiki.referenceSources.remove": "referenceSourcesRemove",
+  "openwiki.format.draft": "formatDraft",
+  "openwiki.format.parse": "formatParse",
+  "openwiki.format.merge": "formatMerge",
+  "openwiki.format.reset": "formatReset",
+  "openwiki.export.docx": "exportDocx",
 } as const
 
 export const omitEndpoints = new Set(["fs.read", "pty.connect", "pty.connectToken"])

@@ -11,7 +11,7 @@ const jobKey = (directory) => path.resolve(directory);
  *   id: string,
  *   directory: string,
  *   mode: 'code',
- *   command: 'init' | 'update',
+ *   command: 'init' | 'update' | 'parse-format',
  *   stage: OpenWikiJobStage,
  *   model: { providerID: string, modelID: string },
  *   mappedProvider?: string,

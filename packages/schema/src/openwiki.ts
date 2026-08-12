@@ -25,7 +25,7 @@ export const JobStage = Schema.Literals([
 ]).annotate({ identifier: "OpenWiki.JobStage" })
 export type JobStage = typeof JobStage.Type
 
-export const JobCommand = Schema.Literals(["init", "update"]).annotate({
+export const JobCommand = Schema.Literals(["init", "update", "parse-format"]).annotate({
   identifier: "OpenWiki.JobCommand",
 })
 export type JobCommand = typeof JobCommand.Type
@@ -133,3 +133,68 @@ export const StatusQuery = Schema.Struct({
   openWikiModelOverride: optional(Schema.String),
 }).annotate({ identifier: "OpenWiki.StatusQuery" })
 export interface StatusQuery extends Schema.Schema.Type<typeof StatusQuery> {}
+
+export class ReferenceSourceFile extends Schema.Class<ReferenceSourceFile>("OpenWiki.ReferenceSourceFile")({
+  id: Schema.String,
+  name: Schema.String,
+  size: Schema.Number,
+  extension: Schema.String,
+  modifiedAt: Schema.Number,
+}) {}
+
+export class ReferenceSourcesList extends Schema.Class<ReferenceSourcesList>("OpenWiki.ReferenceSourcesList")({
+  root: Schema.String,
+  files: Schema.Array(ReferenceSourceFile),
+  count: Schema.Number,
+  maxFiles: Schema.Number,
+  saved: optional(Schema.Array(Schema.String)),
+}) {}
+
+export const ReferenceSourceUpload = Schema.Struct({
+  name: Schema.String,
+  contentBase64: Schema.String,
+  confirmLarge: optional(Schema.Boolean),
+}).annotate({ identifier: "OpenWiki.ReferenceSourceUpload" })
+export interface ReferenceSourceUpload extends Schema.Schema.Type<typeof ReferenceSourceUpload> {}
+
+export const ReferenceSourcesAddInput = Schema.Struct({
+  files: Schema.Array(ReferenceSourceUpload),
+  confirmLarge: optional(Schema.Boolean),
+}).annotate({ identifier: "OpenWiki.ReferenceSourcesAddInput" })
+export interface ReferenceSourcesAddInput extends Schema.Schema.Type<typeof ReferenceSourcesAddInput> {}
+
+export const ReferenceSourcesRemoveInput = Schema.Struct({
+  id: Schema.String,
+}).annotate({ identifier: "OpenWiki.ReferenceSourcesRemoveInput" })
+export interface ReferenceSourcesRemoveInput extends Schema.Schema.Type<typeof ReferenceSourcesRemoveInput> {}
+
+export class FormatDraft extends Schema.Class<FormatDraft>("OpenWiki.FormatDraft")({
+  instructions: Schema.String,
+  format: Schema.String,
+  createdAt: Schema.NullOr(Schema.Number),
+  updatedAt: Schema.NullOr(Schema.Number),
+  model: Schema.NullOr(ModelRef),
+  sourceFiles: Schema.Array(Schema.String),
+  warnings: Schema.Array(Schema.String),
+}) {}
+
+export class FormatDraftEnvelope extends Schema.Class<FormatDraftEnvelope>("OpenWiki.FormatDraftEnvelope")({
+  draft: Schema.NullOr(FormatDraft),
+}) {}
+
+export class FormatMergeResult extends Schema.Class<FormatMergeResult>("OpenWiki.FormatMergeResult")({
+  bundle: FormatBundle,
+  draft: FormatDraft,
+}) {}
+
+export class DocxExportFile extends Schema.Class<DocxExportFile>("OpenWiki.DocxExportFile")({
+  relativePath: Schema.String,
+  fileName: Schema.String,
+  contentBase64: Schema.String,
+  size: Schema.Number,
+}) {}
+
+export class DocxExport extends Schema.Class<DocxExport>("OpenWiki.DocxExport")({
+  wikiRoot: Schema.String,
+  files: Schema.Array(DocxExportFile),
+}) {}

@@ -1,6 +1,6 @@
 OpenCode 本机集成 — 工作进展与后续事项
 ============================================
-日期：2026-08-12（F0–F4 已提交；Wiki 全页 UI 待提交；安装包手测 OpenWiki 可运行）
+日期：2026-08-12（Stage N + Wiki 布局/工作区修复已提交 personal；oc-dist 已重打待手测）
 分支：personal（基于 origin/dev 浅克隆）
 远程：origin = https://github.com/Blanceone/opencode.git（同步用 origin/dev；本线推 origin/personal）
 本机约束：
@@ -48,11 +48,20 @@ OpenCode 本机集成 — 工作进展与后续事项
 - 模型：打开 Wiki 前 promote 会话模型；跟随 recent/当前选择；限流文案；脏格式防轮询覆盖
 - Bugbot 多轮：双 chrome、返回草稿、formatDirty 竞态、树 force refresh、筛选、窄屏 overflow
 
+【提交 e1a51ea】feat(openwiki): add Stage N reference parse export and wiki fixes
+- N1 adapter：reference-sources / format-parse / md-docx + stage-n.test.js（adm-zip）；parse-format job
+- N1 栈：Schema→Protocol→Server→Core；client regenerate（referenceSources* / formatParse|Merge|Draft|Reset / exportDocx）
+- N2 App：参考文档导入/移除；解析→草案→合并；Reset；Export Word（浏览器下载）；en+zh i18n
+- 修复：Core OpenWiki + wiki_read|wiki_search 用 location.directory（无 git 时不再落到盘符根 D:\）
+- 修复：Wiki 页 self-stretch 铺满；分栏 ResizeHandle 移出 overflow 裁切；openwiki-client 带 x-opencode-directory
+- QA：openwiki 33 pass + schema status 2 + core/server/app/protocol typecheck；CLI status 非 git 目录正确
+- oc-dist 重打（~185MB，22:51）：含 Stage N + 布局/工作区修复；worker.mjs 已打入
+
 三、本机验证
 ------------
-- bun test --cwd packages/openwiki：25 pass（reclaim / ownership / jsonc / worker-runtime）
-- bun typecheck：packages/app、packages/server 通过
-- 重打 depends/oc-dist（2026-08-12 晚）：含 worker.mjs + 全页 Wiki UI；解包 OpenCode.exe
+- bun test --cwd packages/openwiki：33 pass（含 stage-n / reclaim / ownership / worker-runtime）
+- bun typecheck：packages/core、packages/server、packages/app、packages/protocol 通过
+- 重打 depends/oc-dist（2026-08-12 22:51）：含 Stage N + 布局/工作区修复；解包 OpenCode.exe
 - 未做：付费模型 E2E；代码签名；vendored client tarball 升级含 openwikis；安装包内置 Node；干净无 Node 机回归
 
 四、自定义 / 自部署模型影响（结论）
@@ -63,7 +72,7 @@ OpenCode 本机集成 — 工作进展与后续事项
 
 五、安装产物（本机 depends/oc-dist，gitignored）
 ----------------------------------------------
-  depends/oc-dist/opencode-desktop-win-x64.exe   (~176MB，本轮含全页 Wiki UI)
+  depends/oc-dist/opencode-desktop-win-x64.exe   (~177MB，含 Stage N + Wiki 修复)
   depends/oc-dist/win-unpacked/OpenCode.exe
   win-unpacked/resources/openwiki/worker.mjs
 
@@ -79,44 +88,43 @@ OpenCode 本机集成 — 工作进展与后续事项
 对照：D:\work\ai\openchamber\openchamber @ 1fa02046
   - generate/update + gateway + consent + format get/put + 打包     Chamber✅ / OC✅（手测可跑）
   - 可见入口                                                         Chamber✅ / OC✅（新建会话 + 会话页 + TUI + 全页）
-  - Wiki 文件树 + 预览（本仓局部）                                     Chamber✅ / OC◐（浏览/预览有；Word/Stage N 仍缺）
-  - reference-sources / format parse-merge / Word / smoke            Chamber✅ / OC❌（Stage N）
+  - Wiki 文件树 + 预览（本仓局部）                                     Chamber✅ / OC✅（全页树+预览）
+  - reference-sources / format parse-merge / Word / smoke            Chamber✅ / OC◐（N1+N2 已提交；N4 安装包手测待做）
 
 七、集成审查结论（2026-08-12）与关闭状态
 --------------------------------------
-原 P0/P1 项已在 F0–F4 关闭（代码 + 安装包手测）。剩余为 P2 / Stage N / 工程收尾。
-全页 Wiki UI（浏览面子集）已落地；导出 Word / format parse-merge 仍属 Stage N。
+原 P0/P1 项已在 F0–F4 关闭（代码 + 安装包手测）。Stage N1/N2 已入库 personal；N4 安装包冒烟仍开放。
 
 仍开放：
-  - Stage N（Word / format parse-merge / reference-sources；树能力部分已做）
+  - Stage N4 安装包手测（导入 / parse-merge / 导出 / worker+Node；Word 当前浏览器下载）
   - 多数 locale 仍英文；TUI 部分硬编码 EN
   - 付费模型 gateway E2E；CSC 签名；可选 job 落盘 .wiki
   - App vendored client tarball 仍可升级（当前走 openwiki/http-client + fallback）
 
 八、下一步计划
 --------------
-原则：F 已手测通过 → 可开 Stage N 剩余项；仍建议先与 origin/dev 同步再大移植。
+原则：Stage N1/N2 已提交 personal；N4 以安装包手测为主。
 
-────────── 阶段 N：Chamber Stage N 移植（部分进行中）──────────
+────────── 阶段 N：Chamber Stage N 移植 ──────────
 
-【N1】服务端能力（原 O1）
-  - 迁入 packages/openwiki：reference-sources / format-parse / md-docx + 单测
-  - Schema→Protocol→Server：CRUD、parse|draft|merge|reset、export/docx
-  - Core 包装；Client regenerate 或 sidecar 过渡；精简 stage-n-smoke
-  - 硬约束：不改 openwiki agent 流水线；仍读写 INSTRUCTIONS.md + FORMAT.md
-  - 源：openchamber packages/web/server/lib/openwiki/{reference-sources,format-parse,md-docx}.js
+【N1】服务端能力（原 O1）— ✅ 已提交
+  - packages/openwiki：reference-sources / format-parse / md-docx + stage-n.test.js
+  - Schema→Protocol→Server→Core：CRUD、parse|draft|merge|reset、export/docx
+  - Client regenerate（openwikis.referenceSources* / formatParse|Merge|Draft|Reset / exportDocx）
+  - 硬约束：未改 openwiki agent 流水线；仍读写 INSTRUCTIONS.md + FORMAT.md
 
-【N2】App 格式 UX（原 O2）
-  - 弱化预设主流程 → 提示词编辑 + Reset；参考文档导入；解析→草案→合并
-  - Desktop IPC：选文件/扫目录/写导出；i18n 至少 en+zh
+【N2】App 格式 UX（原 O2）— ✅ 已提交（子集）
+  - Wiki 面板：提示词编辑 + Reset；参考文档导入/移除；解析→草案→合并；Export Word（下载）
+  - i18n：en + zh；预设下沉为次要控件
+  - ❌ 尚未做：Desktop IPC 选目录写导出 / 扫文件夹导入（可用浏览器选文件）
 
-【N3】Wiki 浏览面（原 O3）— 部分完成
-  - ✅ 全页左右分栏；`.wiki` 文件树 + Markdown/文本预览；筛选；刷新
-  - ❌ Export Word；跳过控制目录的精细策略可再收紧
+【N3】Wiki 浏览面（原 O3）— ✅ 此前完成
+  - 全页左右分栏；`.wiki` 文件树 + Markdown/文本预览；筛选；刷新
+  - Export Word 按钮已接到 N2
 
-【N4】验证与重打包（原 O4）
-  - 冒烟：导入 / parse-merge / 导出写盘 / 安装包无 ELOOP / worker+Node
-  - 刷新 depends/oc-dist
+【N4】验证与重打包（原 O4）— 部分完成
+  - ✅ oc-dist 已重打（2026-08-12 22:51，含 Stage N + 布局/工作区修复）
+  - ❌ 安装包手测：导入 / parse-merge / 导出 / worker+Node
 
 刻意不做：官方 visualize、personal/MCP/PostHog、第二套模型登录、硬并进 Session V2
 
@@ -126,7 +134,7 @@ OpenCode 本机集成 — 工作进展与后续事项
 2. PR 前整理 commit；补 Server HttpApi 集成测
 3. 安装包 CSC 签名；产品名默认无空格
 4. 付费模型 gateway E2E
-5. 可选：安装包内置 Node；job 快照落盘
+5. 可选：安装包内置 Node；job 快照落盘；桌面目录写出 DOCX
 
 十、常用命令
 ------------
@@ -134,6 +142,7 @@ bun run --cwd packages/openwiki openwiki status --dir <项目>
 bun run --cwd packages/openwiki openwiki generate --dir <项目> --wait
 bun test --cwd packages/openwiki
 bun test --cwd packages/schema src/openwiki-status.test.ts
+bun run generate   # packages/client
 bun ./scripts/prepare-openwiki.ts   # packages/desktop
 # $env:OPENWIKI_NODE_BINARY="d:\work\app\nodejs\node.exe"
 # OpenChamber：D:\work\ai\openchamber\openchamber（dev @ 1fa02046）
@@ -141,4 +150,5 @@ bun ./scripts/prepare-openwiki.ts   # packages/desktop
 十一、本轮打包机回归摘要
 ------------------------
 F0–F4 后重打 oc-dist 成功；resources/openwiki/worker.mjs 已打入；用户确认 OpenWiki 可运行。
-全页 Wiki UI 后再次重打 oc-dist（含分栏/文件浏览）；此前 Status encode / asar worker 路径问题已在 aaeec29 修复。
+全页 Wiki UI 后重打 oc-dist；Status encode / asar worker 路径问题已在 aaeec29 修复。
+Stage N + Wiki 修复后重打 oc-dist（2026-08-12 22:51）：reference/parse/export API、布局铺满、工作区路径修复；安装包手测仍待做。

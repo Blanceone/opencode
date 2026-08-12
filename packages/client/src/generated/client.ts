@@ -124,6 +124,22 @@ import type {
   OpenwikisJobOutput,
   OpenwikisCancelInput,
   OpenwikisCancelOutput,
+  OpenwikisReferenceSourcesListInput,
+  OpenwikisReferenceSourcesListOutput,
+  OpenwikisReferenceSourcesAddInput,
+  OpenwikisReferenceSourcesAddOutput,
+  OpenwikisReferenceSourcesRemoveInput,
+  OpenwikisReferenceSourcesRemoveOutput,
+  OpenwikisFormatDraftInput,
+  OpenwikisFormatDraftOutput,
+  OpenwikisFormatParseInput,
+  OpenwikisFormatParseOutput,
+  OpenwikisFormatMergeInput,
+  OpenwikisFormatMergeOutput,
+  OpenwikisFormatResetInput,
+  OpenwikisFormatResetOutput,
+  OpenwikisExportDocxInput,
+  OpenwikisExportDocxOutput,
   ProjectCopiesCreateInput,
   ProjectCopiesCreateOutput,
   ProjectCopiesRemoveInput,
@@ -1090,6 +1106,116 @@ export function make(options: ClientOptions) {
           {
             method: "POST",
             path: `/api/openwiki/cancel`,
+            query: { location: input?.["location"] },
+            successStatus: 200,
+            declaredStatuses: [400, 409, 401, 500],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      referenceSourcesList: (input?: OpenwikisReferenceSourcesListInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisReferenceSourcesListOutput>(
+          {
+            method: "GET",
+            path: `/api/openwiki/reference-sources`,
+            query: { location: input?.["location"] },
+            successStatus: 200,
+            declaredStatuses: [400, 409, 401, 500],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      referenceSourcesAdd: (input: OpenwikisReferenceSourcesAddInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisReferenceSourcesAddOutput>(
+          {
+            method: "POST",
+            path: `/api/openwiki/reference-sources`,
+            query: { location: input["location"] },
+            body: { files: input["files"], confirmLarge: input["confirmLarge"] },
+            successStatus: 200,
+            declaredStatuses: [400, 409, 401, 500],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      referenceSourcesRemove: (input: OpenwikisReferenceSourcesRemoveInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisReferenceSourcesRemoveOutput>(
+          {
+            method: "POST",
+            path: `/api/openwiki/reference-sources/remove`,
+            query: { location: input["location"] },
+            body: { id: input["id"] },
+            successStatus: 200,
+            declaredStatuses: [400, 409, 401, 500],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      formatDraft: (input?: OpenwikisFormatDraftInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisFormatDraftOutput>(
+          {
+            method: "GET",
+            path: `/api/openwiki/format/draft`,
+            query: { location: input?.["location"] },
+            successStatus: 200,
+            declaredStatuses: [400, 409, 401, 500],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      formatParse: (input?: OpenwikisFormatParseInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisFormatParseOutput>(
+          {
+            method: "POST",
+            path: `/api/openwiki/format/parse`,
+            query: { location: input?.["location"] },
+            body: {
+              model: input?.["model"],
+              consent: input?.["consent"],
+              consentAction: input?.["consentAction"],
+              openWikiModelOverride: input?.["openWikiModelOverride"],
+            },
+            successStatus: 200,
+            declaredStatuses: [400, 409, 401, 500],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      formatMerge: (input?: OpenwikisFormatMergeInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisFormatMergeOutput>(
+          {
+            method: "POST",
+            path: `/api/openwiki/format/merge`,
+            query: { location: input?.["location"] },
+            body: {
+              model: input?.["model"],
+              consent: input?.["consent"],
+              consentAction: input?.["consentAction"],
+              openWikiModelOverride: input?.["openWikiModelOverride"],
+            },
+            successStatus: 200,
+            declaredStatuses: [400, 409, 401, 500],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      formatReset: (input?: OpenwikisFormatResetInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisFormatResetOutput>(
+          {
+            method: "POST",
+            path: `/api/openwiki/format/reset`,
+            query: { location: input?.["location"] },
+            successStatus: 200,
+            declaredStatuses: [400, 409, 401, 500],
+            empty: false,
+          },
+          requestOptions,
+        ),
+      exportDocx: (input?: OpenwikisExportDocxInput, requestOptions?: RequestOptions) =>
+        request<OpenwikisExportDocxOutput>(
+          {
+            method: "POST",
+            path: `/api/openwiki/export/docx`,
             query: { location: input?.["location"] },
             successStatus: 200,
             declaredStatuses: [400, 409, 401, 500],

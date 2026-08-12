@@ -6,6 +6,8 @@ export const OPENWIKI_BIND_NAME = 'openwiki';
 export const MARKER_FILE_NAME = '.opencode-openwiki.json';
 export const INSTRUCTIONS_FILE_NAME = 'INSTRUCTIONS.md';
 export const FORMAT_FILE_NAME = 'FORMAT.md';
+export const REFERENCE_SOURCES_DIR_NAME = 'reference-sources';
+export const FORMAT_DRAFT_FILE_NAME = '.opencode-format-draft.json';
 export const MARKER_VERSION = 1;
 
 /**
@@ -32,6 +34,18 @@ export const getInstructionsPath = (projectDirectory) => path.join(getWikiRoot(p
  * @param {string} projectDirectory
  */
 export const getFormatPath = (projectDirectory) => path.join(getWikiRoot(projectDirectory), FORMAT_FILE_NAME);
+
+/**
+ * @param {string} projectDirectory
+ */
+export const getReferenceSourcesRoot = (projectDirectory) =>
+  path.join(getWikiRoot(projectDirectory), REFERENCE_SOURCES_DIR_NAME);
+
+/**
+ * @param {string} projectDirectory
+ */
+export const getFormatDraftPath = (projectDirectory) =>
+  path.join(getWikiRoot(projectDirectory), FORMAT_DRAFT_FILE_NAME);
 
 /**
  * @param {string} targetPath
@@ -89,10 +103,15 @@ export const directoryHasMarkdown = (dirPath) => {
       if (entry.name === '.' || entry.name === '..') continue;
       const full = path.join(current, entry.name);
       if (entry.isDirectory()) {
-        if (entry.name === 'node_modules' || entry.name === '.git') continue;
+        if (
+          entry.name === 'node_modules'
+          || entry.name === '.git'
+          || entry.name === REFERENCE_SOURCES_DIR_NAME
+        ) continue;
         stack.push(full);
-      } else if (entry.isFile() && entry.name.toLowerCase().endsWith('.md')) {
-        return true;
+      } else if (entry.isFile()) {
+        if (entry.name === FORMAT_DRAFT_FILE_NAME) continue;
+        if (entry.name.toLowerCase().endsWith('.md')) return true;
       }
     }
   }

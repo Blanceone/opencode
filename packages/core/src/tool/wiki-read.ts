@@ -37,7 +37,7 @@ const layer = Layer.effectDiscard(
           output: Output,
           execute: (input) =>
             Effect.gen(function* () {
-              const wikiRoot = path.join(location.project.directory, ".wiki")
+              const wikiRoot = path.join(location.directory, ".wiki")
               const rel = input.path.replace(/^[/\\]+/, "").replace(/\\/g, "/")
               if (!rel || rel.includes("..")) {
                 return yield* Effect.fail(new ToolFailure({ message: "Invalid wiki path" }))

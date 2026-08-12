@@ -156,9 +156,98 @@ export const OpenWikiGroup = HttpApiGroup.make("server.openwiki")
       .annotateMerge(locationQueryOpenApi)
       .annotateMerge(OpenApi.annotations({ identifier: "v2.openwiki.cancel", summary: "Cancel wiki job" })),
   )
+  .add(
+    HttpApiEndpoint.get("openwiki.referenceSources.list", "/api/openwiki/reference-sources", {
+      query: LocationQuery,
+      success: Location.response(OpenWiki.ReferenceSourcesList),
+      error: [...OpenWikiHttpErrors],
+    })
+      .annotateMerge(locationQueryOpenApi)
+      .annotateMerge(
+        OpenApi.annotations({ identifier: "v2.openwiki.referenceSources.list", summary: "List wiki reference sources" }),
+      ),
+  )
+  .add(
+    HttpApiEndpoint.post("openwiki.referenceSources.add", "/api/openwiki/reference-sources", {
+      query: LocationQuery,
+      payload: OpenWiki.ReferenceSourcesAddInput,
+      success: Location.response(OpenWiki.ReferenceSourcesList),
+      error: [...OpenWikiHttpErrors],
+    })
+      .annotateMerge(locationQueryOpenApi)
+      .annotateMerge(
+        OpenApi.annotations({ identifier: "v2.openwiki.referenceSources.add", summary: "Import wiki reference sources" }),
+      ),
+  )
+  .add(
+    HttpApiEndpoint.post("openwiki.referenceSources.remove", "/api/openwiki/reference-sources/remove", {
+      query: LocationQuery,
+      payload: OpenWiki.ReferenceSourcesRemoveInput,
+      success: Location.response(OpenWiki.ReferenceSourcesList),
+      error: [...OpenWikiHttpErrors],
+    })
+      .annotateMerge(locationQueryOpenApi)
+      .annotateMerge(
+        OpenApi.annotations({
+          identifier: "v2.openwiki.referenceSources.remove",
+          summary: "Remove a wiki reference source",
+        }),
+      ),
+  )
+  .add(
+    HttpApiEndpoint.get("openwiki.format.draft", "/api/openwiki/format/draft", {
+      query: LocationQuery,
+      success: Location.response(OpenWiki.FormatDraftEnvelope),
+      error: [...OpenWikiHttpErrors],
+    })
+      .annotateMerge(locationQueryOpenApi)
+      .annotateMerge(OpenApi.annotations({ identifier: "v2.openwiki.format.draft", summary: "Get format draft" })),
+  )
+  .add(
+    HttpApiEndpoint.post("openwiki.format.parse", "/api/openwiki/format/parse", {
+      query: LocationQuery,
+      payload: OpenWiki.StartJobInput,
+      success: Location.response(OpenWiki.Job),
+      error: [...OpenWikiHttpErrors, InvalidRequestError],
+    })
+      .annotateMerge(locationQueryOpenApi)
+      .annotateMerge(
+        OpenApi.annotations({ identifier: "v2.openwiki.format.parse", summary: "Parse references into a format draft" }),
+      ),
+  )
+  .add(
+    HttpApiEndpoint.post("openwiki.format.merge", "/api/openwiki/format/merge", {
+      query: LocationQuery,
+      payload: OpenWiki.StartJobInput,
+      success: Location.response(OpenWiki.FormatMergeResult),
+      error: [...OpenWikiHttpErrors, InvalidRequestError],
+    })
+      .annotateMerge(locationQueryOpenApi)
+      .annotateMerge(
+        OpenApi.annotations({ identifier: "v2.openwiki.format.merge", summary: "Merge format draft into active prompts" }),
+      ),
+  )
+  .add(
+    HttpApiEndpoint.post("openwiki.format.reset", "/api/openwiki/format/reset", {
+      query: LocationQuery,
+      success: Location.response(OpenWiki.FormatBundle),
+      error: [...OpenWikiHttpErrors],
+    })
+      .annotateMerge(locationQueryOpenApi)
+      .annotateMerge(OpenApi.annotations({ identifier: "v2.openwiki.format.reset", summary: "Reset format to default preset" })),
+  )
+  .add(
+    HttpApiEndpoint.post("openwiki.export.docx", "/api/openwiki/export/docx", {
+      query: LocationQuery,
+      success: Location.response(OpenWiki.DocxExport),
+      error: [...OpenWikiHttpErrors],
+    })
+      .annotateMerge(locationQueryOpenApi)
+      .annotateMerge(OpenApi.annotations({ identifier: "v2.openwiki.export.docx", summary: "Export wiki pages as DOCX" })),
+  )
   .annotateMerge(
     OpenApi.annotations({
       title: "openwiki",
-      description: "Project OpenWiki generation and browsing support.",
+      description: "Project OpenWiki generation, format tooling, and export.",
     }),
   )

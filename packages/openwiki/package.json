@@ -17,10 +17,12 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@opencode-ai/client": "workspace:*"
+    "@opencode-ai/client": "workspace:*",
+    "adm-zip": "0.6.0"
   },
   "devDependencies": {
-    "@types/bun": "catalog:",
-    "@tsconfig/bun": "catalog:"
+    "@tsconfig/bun": "catalog:",
+    "@types/adm-zip": "0.5.8",
+    "@types/bun": "catalog:"
   }
 }

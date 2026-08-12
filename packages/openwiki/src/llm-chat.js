@@ -791,3 +791,88 @@ export const forwardChatCompletions = async ({ upstream, body, res, signal, reas
   store.rememberFromCompletion(completion);
   writeTranslatedCompletion(res, completion, wantStream);
 };
+
+/**
+ * One-shot non-streaming chat completion for format parse/merge (no tools).
+ * @param {{
+ *   upstream: {
+ *     kind: string,
+ *     baseURL: string,
+ *     headers: Record<string, string>,
+ *     modelID: string,
+ *     anonymous?: boolean,
+ *   },
+ *   messages: Array<{ role: string, content: string }>,
+ *   signal?: AbortSignal,
+ * }} input
+ * @returns {Promise<{ text: string, completion: Record<string, unknown> }>}
+ */
+export const completeChatOnce = async ({ upstream, messages, signal }) => {
+  /** @type {{ statusCode?: number, headers?: Record<string, string>, chunks: Buffer[] }} */
+  const sink = { chunks: [] };
+  const res = {
+    writeHead(statusCode, headers) {
+      sink.statusCode = statusCode;
+      sink.headers = headers;
+    },
+    end(chunk) {
+      if (chunk != null) {
+        sink.chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+      }
+    },
+    write(chunk) {
+      if (chunk != null) {
+        sink.chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+      }
+      return true;
+    },
+  };
+
+  await forwardChatCompletions({
+    upstream,
+    body: {
+      model: upstream.modelID,
+      stream: false,
+      messages,
+    },
+    res,
+    signal: signal || AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+
+  const payloadText = Buffer.concat(sink.chunks).toString('utf8');
+  if (sink.statusCode && sink.statusCode >= 400) {
+    let message = 'Upstream chat completion failed';
+    let code;
+    try {
+      const parsed = JSON.parse(payloadText);
+      message = parsed?.error?.message || parsed?.error || message;
+      code = parsed?.error?.code;
+    } catch {
+      if (payloadText.trim()) message = payloadText.trim().slice(0, 500);
+    }
+    throw Object.assign(new Error(typeof message === 'string' ? message : 'Upstream chat completion failed'), {
+      statusCode: sink.statusCode,
+      code: typeof code === 'string' ? code : 'openwiki-llm-failed',
+    });
+  }
+
+  let completion;
+  try {
+    completion = payloadText ? JSON.parse(payloadText) : {};
+  } catch {
+    throw Object.assign(new Error('Upstream returned invalid JSON'), {
+      statusCode: 502,
+      code: 'openwiki-llm-invalid-json',
+    });
+  }
+
+  const choice = Array.isArray(completion?.choices) ? completion.choices[0] : null;
+  const text = textFromContent(choice?.message?.content);
+  if (!text.trim()) {
+    throw Object.assign(new Error('Model returned an empty response'), {
+      statusCode: 502,
+      code: 'openwiki-llm-empty',
+    });
+  }
+  return { text, completion };
+};

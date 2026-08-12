@@ -739,6 +739,89 @@ type Endpoint17_8Input = { readonly location?: Endpoint17_8Request["query"]["loc
 const Endpoint17_8 = (raw: RawClient["server.openwiki"]) => (input?: Endpoint17_8Input) =>
   raw["openwiki.cancel"]({ query: { location: input?.["location"] } }).pipe(Effect.mapError(mapClientError))
 
+type Endpoint17_9Request = Parameters<RawClient["server.openwiki"]["openwiki.referenceSources.list"]>[0]
+type Endpoint17_9Input = { readonly location?: Endpoint17_9Request["query"]["location"] }
+const Endpoint17_9 = (raw: RawClient["server.openwiki"]) => (input?: Endpoint17_9Input) =>
+  raw["openwiki.referenceSources.list"]({ query: { location: input?.["location"] } }).pipe(
+    Effect.mapError(mapClientError),
+  )
+
+type Endpoint17_10Request = Parameters<RawClient["server.openwiki"]["openwiki.referenceSources.add"]>[0]
+type Endpoint17_10Input = {
+  readonly location?: Endpoint17_10Request["query"]["location"]
+  readonly files: Endpoint17_10Request["payload"]["files"]
+  readonly confirmLarge?: Endpoint17_10Request["payload"]["confirmLarge"]
+}
+const Endpoint17_10 = (raw: RawClient["server.openwiki"]) => (input: Endpoint17_10Input) =>
+  raw["openwiki.referenceSources.add"]({
+    query: { location: input["location"] },
+    payload: { files: input["files"], confirmLarge: input["confirmLarge"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint17_11Request = Parameters<RawClient["server.openwiki"]["openwiki.referenceSources.remove"]>[0]
+type Endpoint17_11Input = {
+  readonly location?: Endpoint17_11Request["query"]["location"]
+  readonly id: Endpoint17_11Request["payload"]["id"]
+}
+const Endpoint17_11 = (raw: RawClient["server.openwiki"]) => (input: Endpoint17_11Input) =>
+  raw["openwiki.referenceSources.remove"]({
+    query: { location: input["location"] },
+    payload: { id: input["id"] },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint17_12Request = Parameters<RawClient["server.openwiki"]["openwiki.format.draft"]>[0]
+type Endpoint17_12Input = { readonly location?: Endpoint17_12Request["query"]["location"] }
+const Endpoint17_12 = (raw: RawClient["server.openwiki"]) => (input?: Endpoint17_12Input) =>
+  raw["openwiki.format.draft"]({ query: { location: input?.["location"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint17_13Request = Parameters<RawClient["server.openwiki"]["openwiki.format.parse"]>[0]
+type Endpoint17_13Input = {
+  readonly location?: Endpoint17_13Request["query"]["location"]
+  readonly model?: Endpoint17_13Request["payload"]["model"]
+  readonly consent?: Endpoint17_13Request["payload"]["consent"]
+  readonly consentAction?: Endpoint17_13Request["payload"]["consentAction"]
+  readonly openWikiModelOverride?: Endpoint17_13Request["payload"]["openWikiModelOverride"]
+}
+const Endpoint17_13 = (raw: RawClient["server.openwiki"]) => (input?: Endpoint17_13Input) =>
+  raw["openwiki.format.parse"]({
+    query: { location: input?.["location"] },
+    payload: {
+      model: input?.["model"],
+      consent: input?.["consent"],
+      consentAction: input?.["consentAction"],
+      openWikiModelOverride: input?.["openWikiModelOverride"],
+    },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint17_14Request = Parameters<RawClient["server.openwiki"]["openwiki.format.merge"]>[0]
+type Endpoint17_14Input = {
+  readonly location?: Endpoint17_14Request["query"]["location"]
+  readonly model?: Endpoint17_14Request["payload"]["model"]
+  readonly consent?: Endpoint17_14Request["payload"]["consent"]
+  readonly consentAction?: Endpoint17_14Request["payload"]["consentAction"]
+  readonly openWikiModelOverride?: Endpoint17_14Request["payload"]["openWikiModelOverride"]
+}
+const Endpoint17_14 = (raw: RawClient["server.openwiki"]) => (input?: Endpoint17_14Input) =>
+  raw["openwiki.format.merge"]({
+    query: { location: input?.["location"] },
+    payload: {
+      model: input?.["model"],
+      consent: input?.["consent"],
+      consentAction: input?.["consentAction"],
+      openWikiModelOverride: input?.["openWikiModelOverride"],
+    },
+  }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint17_15Request = Parameters<RawClient["server.openwiki"]["openwiki.format.reset"]>[0]
+type Endpoint17_15Input = { readonly location?: Endpoint17_15Request["query"]["location"] }
+const Endpoint17_15 = (raw: RawClient["server.openwiki"]) => (input?: Endpoint17_15Input) =>
+  raw["openwiki.format.reset"]({ query: { location: input?.["location"] } }).pipe(Effect.mapError(mapClientError))
+
+type Endpoint17_16Request = Parameters<RawClient["server.openwiki"]["openwiki.export.docx"]>[0]
+type Endpoint17_16Input = { readonly location?: Endpoint17_16Request["query"]["location"] }
+const Endpoint17_16 = (raw: RawClient["server.openwiki"]) => (input?: Endpoint17_16Input) =>
+  raw["openwiki.export.docx"]({ query: { location: input?.["location"] } }).pipe(Effect.mapError(mapClientError))
+
 const adaptGroup17 = (raw: RawClient["server.openwiki"]) => ({
   status: Endpoint17_0(raw),
   formatGet: Endpoint17_1(raw),
@@ -749,6 +832,14 @@ const adaptGroup17 = (raw: RawClient["server.openwiki"]) => ({
   update: Endpoint17_6(raw),
   job: Endpoint17_7(raw),
   cancel: Endpoint17_8(raw),
+  referenceSourcesList: Endpoint17_9(raw),
+  referenceSourcesAdd: Endpoint17_10(raw),
+  referenceSourcesRemove: Endpoint17_11(raw),
+  formatDraft: Endpoint17_12(raw),
+  formatParse: Endpoint17_13(raw),
+  formatMerge: Endpoint17_14(raw),
+  formatReset: Endpoint17_15(raw),
+  exportDocx: Endpoint17_16(raw),
 })
 
 type Endpoint18_0Request = Parameters<RawClient["server.projectCopy"]["projectCopy.create"]>[0]

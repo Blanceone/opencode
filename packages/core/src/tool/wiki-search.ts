@@ -91,7 +91,7 @@ const layer = Layer.effectDiscard(
           output: Output,
           execute: (input) =>
             Effect.gen(function* () {
-              const wikiRoot = path.join(location.project.directory, ".wiki")
+              const wikiRoot = path.join(location.directory, ".wiki")
               const needle = input.query.trim().toLowerCase()
               if (!needle) return { hits: [] }
               const limit = Math.min(Math.max(Number(input.limit) || 20, 1), 100)

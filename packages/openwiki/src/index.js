@@ -18,6 +18,22 @@ export { resolveOpenWikiPackageRoot } from './resolve-package.js';
 export { readMarker } from './marker.js';
 export { ensureWikiReference } from './references.js';
 export { startOpenWikiLlmGateway, stopOpenWikiLlmGateway } from './llm-gateway.js';
+export {
+  listReferenceSources,
+  addReferenceSources,
+  removeReferenceSource,
+  REFERENCE_SOURCE_MAX_FILES,
+} from './reference-sources.js';
+export {
+  readFormatDraft,
+  writeFormatDraft,
+  clearFormatDraft,
+  resetFormatBundle,
+  startFormatParseJob,
+  mergeFormatDraft,
+  parseDraftMarkers,
+} from './format-parse.js';
+export { buildWikiDocxExport, markdownToDocxBuffer } from './md-docx.js';
 
 import { classifyWikiOwnership } from './ownership.js';
 import { getChild, getJob, isJobActive, setChild, updateJob } from './job-store.js';
