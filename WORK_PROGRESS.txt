@@ -1,6 +1,6 @@
 OpenCode 本机集成 — 工作进展与后续事项
 ============================================
-日期：2026-08-12（F0–F4 已提交；安装包手测 OpenWiki 可运行）
+日期：2026-08-12（F0–F4 已提交；Wiki 全页 UI 待提交；安装包手测 OpenWiki 可运行）
 分支：personal（基于 origin/dev 浅克隆）
 远程：origin = https://github.com/Blanceone/opencode.git（同步用 origin/dev；本线推 origin/personal）
 本机约束：
@@ -41,11 +41,18 @@ OpenCode 本机集成 — 工作进展与后续事项
 - F4：完成/失败 toast；detail 截断；404 停轮询 + 错误退避；Update 校验 hasLogin/盘符根
 - client regenerate：OpenWikiConflict/Unauthorized/ServerError；openwiki 单测 25 pass
 
+【提交 PENDING】feat(app): add full-page OpenWiki UI with file browser
+- 路由 `/:dir/wiki`：Wiki 入口改为全页（非弹窗）；`wikiHref` + `from` 返回路径；`FileProvider` 包裹
+- 左板块：状态 chips / 生成·更新 / 预设+保存 / 说明+FORMAT.md；右板块：`.wiki` 文件树 + 预览
+- 可拖拽分界线（常驻竖线）；固定左宽、右侧 flex-1 贴边；左右最小宽度钳制；宽度持久化
+- 模型：打开 Wiki 前 promote 会话模型；跟随 recent/当前选择；限流文案；脏格式防轮询覆盖
+- Bugbot 多轮：双 chrome、返回草稿、formatDirty 竞态、树 force refresh、筛选、窄屏 overflow
+
 三、本机验证
 ------------
 - bun test --cwd packages/openwiki：25 pass（reclaim / ownership / jsonc / worker-runtime）
 - bun typecheck：packages/app、packages/server 通过
-- 重打 depends/oc-dist（2026-08-12）：含 worker.mjs；安装/解包后 OpenWiki 已可运行（用户确认）
+- 重打 depends/oc-dist（2026-08-12 晚）：含 worker.mjs + 全页 Wiki UI；解包 OpenCode.exe
 - 未做：付费模型 E2E；代码签名；vendored client tarball 升级含 openwikis；安装包内置 Node；干净无 Node 机回归
 
 四、自定义 / 自部署模型影响（结论）
@@ -56,7 +63,7 @@ OpenCode 本机集成 — 工作进展与后续事项
 
 五、安装产物（本机 depends/oc-dist，gitignored）
 ----------------------------------------------
-  depends/oc-dist/opencode-desktop-win-x64.exe   (~176MB，本轮)
+  depends/oc-dist/opencode-desktop-win-x64.exe   (~176MB，本轮含全页 Wiki UI)
   depends/oc-dist/win-unpacked/OpenCode.exe
   win-unpacked/resources/openwiki/worker.mjs
 
@@ -71,24 +78,26 @@ OpenCode 本机集成 — 工作进展与后续事项
 ------------------------------
 对照：D:\work\ai\openchamber\openchamber @ 1fa02046
   - generate/update + gateway + consent + format get/put + 打包     Chamber✅ / OC✅（手测可跑）
-  - 可见入口                                                         Chamber✅ / OC✅（新建会话 + 会话页 + TUI）
-  - reference-sources / format parse-merge / Word / Wiki 树 / smoke Chamber✅ / OC❌（Stage N）
+  - 可见入口                                                         Chamber✅ / OC✅（新建会话 + 会话页 + TUI + 全页）
+  - Wiki 文件树 + 预览（本仓局部）                                     Chamber✅ / OC◐（浏览/预览有；Word/Stage N 仍缺）
+  - reference-sources / format parse-merge / Word / smoke            Chamber✅ / OC❌（Stage N）
 
 七、集成审查结论（2026-08-12）与关闭状态
 --------------------------------------
 原 P0/P1 项已在 F0–F4 关闭（代码 + 安装包手测）。剩余为 P2 / Stage N / 工程收尾。
+全页 Wiki UI（浏览面子集）已落地；导出 Word / format parse-merge 仍属 Stage N。
 
 仍开放：
-  - Stage N（树 / Word / format parse-merge / reference-sources）
+  - Stage N（Word / format parse-merge / reference-sources；树能力部分已做）
   - 多数 locale 仍英文；TUI 部分硬编码 EN
   - 付费模型 gateway E2E；CSC 签名；可选 job 落盘 .wiki
   - App vendored client tarball 仍可升级（当前走 openwiki/http-client + fallback）
 
 八、下一步计划
 --------------
-原则：F 已手测通过 → 可开 Stage N；仍建议先与 origin/dev 同步再大移植。
+原则：F 已手测通过 → 可开 Stage N 剩余项；仍建议先与 origin/dev 同步再大移植。
 
-────────── 阶段 N：Chamber Stage N 移植（可开）──────────
+────────── 阶段 N：Chamber Stage N 移植（部分进行中）──────────
 
 【N1】服务端能力（原 O1）
   - 迁入 packages/openwiki：reference-sources / format-parse / md-docx + 单测
@@ -101,9 +110,9 @@ OpenCode 本机集成 — 工作进展与后续事项
   - 弱化预设主流程 → 提示词编辑 + Reset；参考文档导入；解析→草案→合并
   - Desktop IPC：选文件/扫目录/写导出；i18n 至少 en+zh
 
-【N3】Wiki 浏览面（原 O3）
-  - wiki-tree + 树组件；面板：目录树 + Markdown 预览 + Export Word
-  - 跳过控制目录；默认展开
+【N3】Wiki 浏览面（原 O3）— 部分完成
+  - ✅ 全页左右分栏；`.wiki` 文件树 + Markdown/文本预览；筛选；刷新
+  - ❌ Export Word；跳过控制目录的精细策略可再收紧
 
 【N4】验证与重打包（原 O4）
   - 冒烟：导入 / parse-merge / 导出写盘 / 安装包无 ELOOP / worker+Node
@@ -132,4 +141,4 @@ bun ./scripts/prepare-openwiki.ts   # packages/desktop
 十一、本轮打包机回归摘要
 ------------------------
 F0–F4 后重打 oc-dist 成功；resources/openwiki/worker.mjs 已打入；用户确认 OpenWiki 可运行。
-此前 Status encode / asar worker 路径问题已在 aaeec29 修复。
+全页 Wiki UI 后再次重打 oc-dist（含分栏/文件浏览）；此前 Status encode / asar worker 路径问题已在 aaeec29 修复。

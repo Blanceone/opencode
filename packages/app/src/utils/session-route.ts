@@ -10,6 +10,24 @@ export function legacySessionHref(directory: string, sessionID: string) {
   return `/${base64Encode(directory)}/session/${sessionID}`
 }
 
+export function wikiHref(directory: string, from?: string) {
+  const base = `/${base64Encode(directory)}/wiki`
+  if (!from) return base
+  return `${base}?from=${encodeURIComponent(from)}`
+}
+
+export function openWikiPage(input: {
+  navigate: (to: string) => void
+  directory: string
+  from: string
+  sessionID?: string
+  promoteSession?: (directory: string, sessionID: string) => void
+}) {
+  if (input.sessionID && input.promoteSession) {
+    input.promoteSession(input.directory, input.sessionID)
+  }
+  input.navigate(wikiHref(input.directory, input.from))
+}
 export function requireServerKey(segment: string | undefined) {
   const key = decode64(segment)
   if (!key || base64Encode(key) !== segment) throw new Error("Invalid server route")

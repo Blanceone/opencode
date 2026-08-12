@@ -12,12 +12,15 @@ import { createEffect, createMemo, createSignal, For, onMount, Show } from "soli
 import { createStore } from "solid-js/store"
 import { createMediaQuery } from "@solid-primitives/media"
 import { Portal } from "solid-js/web"
+import { useLocal } from "@/context/local"
+import { useNavigate, useLocation } from "@solidjs/router"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
 import { useLayout } from "@/context/layout"
 import { usePlatform } from "@/context/platform"
 import { useServer } from "@/context/server"
 import { useSettings } from "@/context/settings"
+import { useSDK } from "@/context/sdk"
 import { useSync } from "@/context/sync"
 import { useTerminal } from "@/context/terminal"
 import { focusTerminalById } from "@/pages/session/helpers"
@@ -26,12 +29,12 @@ import { messageAgentColor } from "@/utils/agent"
 import { decode64 } from "@/utils/base64"
 import { fileManagerApp } from "@/utils/file-manager"
 import { Persist, persisted } from "@/utils/persist"
+import { openWikiPage } from "@/utils/session-route"
 import { StatusPopover, StatusPopoverV2 } from "../status-popover"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { KeybindV2 } from "@opencode-ai/ui/v2/keybind-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { reviewTooltipKeybind } from "../command-tooltip-keybind"
 import { useTitlebarRightMount } from "../titlebar"
 
@@ -147,16 +150,27 @@ export function SessionHeader() {
   const settings = useSettings()
   const sync = useSync()
   const terminal = useTerminal()
-  const dialog = useDialog()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const sdk = useSDK()
+  const local = useLocal()
   const { params, view } = useSessionLayout()
 
+  const projectDirectory = createMemo(() => decode64(params.dir) ?? sdk().directory ?? "")
+
   const openWiki = () => {
-    void import("@/components/dialog-openwiki").then((mod) => {
-      dialog.show(() => <mod.DialogOpenWiki />)
+    const directory = projectDirectory()
+    if (!directory) return
+    const from = location.pathname + location.search
+    openWikiPage({
+      navigate,
+      directory,
+      from,
+      sessionID: params.id,
+      promoteSession: (dir, sessionID) => local.session.promote(dir, sessionID),
     })
   }
 
-  const projectDirectory = createMemo(() => decode64(params.dir) ?? "")
   const project = createMemo(() => {
     const directory = projectDirectory()
     if (!directory) return

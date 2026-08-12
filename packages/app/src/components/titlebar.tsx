@@ -297,6 +297,11 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
                 }
               }
 
+              if (route.type === "wiki" || route.type === "dir-new-sesssion") {
+                tabs.newDraft({ server: route.server ?? server.key, directory: route.dir }, "")
+                return
+              }
+
               const current = layout.projects.list()[0]
               if (current) {
                 tabs.newDraft({ server: server.key, directory: current.worktree }, "")

@@ -1,7 +1,10 @@
+import { useLocation, useNavigate } from "@solidjs/router"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { useSettingsCommand } from "@/components/settings-dialog"
 import { useCommand } from "@/context/command"
 import { useLanguage } from "@/context/language"
+import { useSDK } from "@/context/sdk"
+import { wikiHref } from "@/utils/session-route"
 
 export function useNewSessionCommands(input: {
   restoreFocus: () => void
@@ -13,6 +16,9 @@ export function useNewSessionCommands(input: {
   const command = useCommand()
   const dialog = useDialog()
   const language = useLanguage()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const sdk = useSDK()
 
   useSettingsCommand()
   command.register("new-session", () => [
@@ -48,10 +54,10 @@ export function useNewSessionCommands(input: {
       slash: "wiki",
       disabled: input.project.empty(),
       onSelect: () => {
-        void import("@/components/dialog-openwiki").then((mod) => {
-          dialog.show(() => <mod.DialogOpenWiki />)
-          input.restoreFocus()
-        })
+        const directory = sdk().directory
+        if (!directory) return
+        navigate(wikiHref(directory, location.pathname + location.search))
+        input.restoreFocus()
       },
     },
   ])

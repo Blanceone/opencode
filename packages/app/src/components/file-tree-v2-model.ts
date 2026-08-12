@@ -80,8 +80,16 @@ export function flattenLiveFileTreeV2(
   children: (path: string) => readonly FileNode[],
   expanded: (path: string) => boolean,
 ) {
+  return flattenLiveFileTreeV2FromRoot("", children, expanded)
+}
+
+export function flattenLiveFileTreeV2FromRoot(
+  root: string,
+  children: (path: string) => readonly FileNode[],
+  expanded: (path: string) => boolean,
+) {
   const rows: FileTreeV2Row[] = []
-  const stack = children("")
+  const stack = children(root)
     .toReversed()
     .map((node) => ({ node: toLiveNode(node), level: 0 }))
 

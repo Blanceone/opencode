@@ -1,11 +1,14 @@
 import { For, Show } from "solid-js"
-import { useDialog } from "@opencode-ai/ui/context/dialog"
+import { useLocation, useNavigate, useParams } from "@solidjs/router"
 import { MenuV2 } from "@opencode-ai/ui/v2/menu-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { getFilename } from "@opencode-ai/core/util/path"
 import { useLanguage } from "@/context/language"
+import { useLocal } from "@/context/local"
+import { useSDK } from "@/context/sdk"
+import { openWikiPage } from "@/utils/session-route"
 
 export function PromptWorkspaceSelector(props: {
   value: string
@@ -130,13 +133,23 @@ export function PromptGitStatus(props: { branch?: string; noGit?: boolean }) {
 
 export function PromptWikiButton(props: { onDone?: () => void }) {
   const language = useLanguage()
-  const dialog = useDialog()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const params = useParams()
+  const local = useLocal()
+  const sdk = useSDK()
 
   const open = () => {
-    void import("@/components/dialog-openwiki").then((mod) => {
-      dialog.show(() => <mod.DialogOpenWiki />)
-      props.onDone?.()
+    const directory = sdk().directory
+    if (!directory) return
+    openWikiPage({
+      navigate,
+      directory,
+      from: location.pathname + location.search,
+      sessionID: params.id,
+      promoteSession: (dir, sessionID) => local.session.promote(dir, sessionID),
     })
+    props.onDone?.()
   }
 
   return (

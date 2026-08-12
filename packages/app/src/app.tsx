@@ -35,6 +35,7 @@ import {
   onCleanup,
   type ParentProps,
   Show,
+  Suspense,
 } from "solid-js"
 import { Dynamic } from "solid-js/web"
 import { makeEventListener } from "@solid-primitives/event-listener"
@@ -70,6 +71,7 @@ import { NewHome } from "@/pages/home"
 import { LegacyHome } from "@/pages/home/legacy-home"
 
 const NewSession = lazy(() => import("@/pages/new-session"))
+const WikiPage = lazy(() => import("@/pages/wiki"))
 
 const SessionRoute = () => {
   const settings = useSettings()
@@ -612,6 +614,17 @@ export function AppInterface(props: {
   )
 }
 
+function OptionalLegacyServerLayout(props: ParentProps<{ serverScoped?: JSX.Element }>) {
+  const settings = useSettings()
+  // New layout already wraps the router root in NewAppLayout. Nested legacy chrome
+  // would double titlebars/sidebars for project routes like /:dir/wiki.
+  return (
+    <Show when={!settings.general.newLayoutDesigns()} fallback={<>{props.children}</>}>
+      <LegacyServerLayout serverScoped={props.serverScoped}>{props.children}</LegacyServerLayout>
+    </Show>
+  )
+}
+
 function Routes(props: { serverScoped?: JSX.Element }) {
   const settings = useSettings()
 
@@ -619,7 +632,9 @@ function Routes(props: { serverScoped?: JSX.Element }) {
     <>
       <Route
         component={(routeProps) => (
-          <LegacyServerLayout serverScoped={props.serverScoped}>{routeProps.children}</LegacyServerLayout>
+          <OptionalLegacyServerLayout serverScoped={props.serverScoped}>
+            {routeProps.children}
+          </OptionalLegacyServerLayout>
         )}
       >
         <Show when={!settings.general.newLayoutDesigns()}>
@@ -633,6 +648,14 @@ function Routes(props: { serverScoped?: JSX.Element }) {
         <Route path="/:dir" component={DirectoryLayout}>
           <Route path="/" component={() => <Navigate href="session" />} />
           <Route path="/session/:id?" component={SessionRoute} />
+          <Route
+            path="/wiki"
+            component={() => (
+              <Suspense fallback={null}>
+                <WikiPage />
+              </Suspense>
+            )}
+          />
         </Route>
       </Route>
       <Show when={settings.general.newLayoutDesigns()}>

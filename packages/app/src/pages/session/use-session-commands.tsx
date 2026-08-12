@@ -1,4 +1,4 @@
-import { useNavigate } from "@solidjs/router"
+import { useNavigate, useLocation } from "@solidjs/router"
 import { useCommand, type CommandOption } from "@/context/command"
 import { useDialog } from "@opencode-ai/ui/context/dialog"
 import { previewSelectedLines } from "@opencode-ai/session-ui/pierre/selection-bridge"
@@ -20,6 +20,7 @@ import { Message, Part, UserMessage } from "@opencode-ai/sdk/v2"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { createSessionOwnership } from "./session-ownership"
 import { useLocal } from "@/context/local"
+import { openWikiPage } from "@/utils/session-route"
 
 export type SessionCommandContext = {
   navigateMessageByOffset: (offset: number) => void
@@ -50,6 +51,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   const layout = useLayout()
   const local = useLocal()
   const navigate = useNavigate()
+  const location = useLocation()
   const { params, sessionKey, tabs, view } = useSessionLayout()
   const sessionOwnership = createSessionOwnership(sessionKey)
   const openDialog = async <T,>(load: () => Promise<T>, show: (value: T) => void) => {
@@ -312,10 +314,15 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   }
 
   const chooseWiki = () => {
-    void openDialog(
-      () => import("@/components/dialog-openwiki"),
-      (x) => dialog.show(() => <x.DialogOpenWiki />),
-    )
+    const directory = sdk().directory
+    if (!directory) return
+    openWikiPage({
+      navigate,
+      directory,
+      from: location.pathname + location.search,
+      sessionID: params.id,
+      promoteSession: (dir, sessionID) => local.session.promote(dir, sessionID),
+    })
   }
 
   const toggleAutoAccept = () => {
