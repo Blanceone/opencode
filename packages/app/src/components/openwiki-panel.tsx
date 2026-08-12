@@ -276,6 +276,7 @@ export const OpenWikiPanel: Component = () => {
 
   /** Fallback when generated client hits a server without /api/openwiki (stale sidecar). */
   const openwikiFetch = async <T,>(path: string, init?: RequestInit): Promise<T> => {
+    if (!directory()) throw new Error("OpenWiki requires the current workspace directory")
     const server = serverSDK().server.http
     const headers: Record<string, string> = {
       "content-type": "application/json",

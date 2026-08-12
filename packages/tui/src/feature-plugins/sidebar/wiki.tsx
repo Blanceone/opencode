@@ -46,10 +46,17 @@ function View(props: { api: TuiPluginApi }) {
   }
 
   const refresh = async () => {
+    const loc = location()
+    // Never omit location: the server would fall back to process.cwd() and
+    // operate on a directory other than the open workspace.
+    if (!loc) {
+      setError("workspace directory unavailable")
+      return
+    }
     try {
       const model = selectedModel()
       const res = await openwiki().status({
-        location: location(),
+        location: loc,
         model: model ? `${model.providerID}/${model.modelID}` : undefined,
       })
       setStatus(res.data)
@@ -69,6 +76,7 @@ function View(props: { api: TuiPluginApi }) {
     try {
       const api = openwiki()
       const loc = location()
+      if (!loc) throw new Error("workspace directory unavailable")
       if (command === "cancel") {
         await api.cancel({ location: loc })
       } else {
@@ -90,7 +98,9 @@ function View(props: { api: TuiPluginApi }) {
     setBusy(true)
     setError(null)
     try {
-      await openwiki().consent({ location: location(), consent: true, consentAction })
+      const loc = location()
+      if (!loc) throw new Error("workspace directory unavailable")
+      await openwiki().consent({ location: loc, consent: true, consentAction })
       await refresh()
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))

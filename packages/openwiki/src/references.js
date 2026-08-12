@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import path from 'node:path';
+import { applyEdits, modify, parse } from 'jsonc-parser';
 
 const CONFIG_CANDIDATES = ['opencode.json', 'opencode.jsonc'];
 
@@ -38,14 +39,16 @@ export const ensureWikiReference = async (directory) => {
   }
 
   const raw = await fsPromises.readFile(configPath, 'utf8');
-  let doc;
-  try {
-    doc = JSON.parse(stripJsonc(raw));
-  } catch (error) {
+  // OpenCode reads config as JSONC (comments / trailing commas allowed), so
+  // parse tolerantly and apply a minimal edit instead of re-serializing the
+  // whole document — rewriting would silently strip user comments.
+  const errors = [];
+  const doc = parse(raw, errors, { allowTrailingComma: true });
+  if (errors.length > 0 && (doc === undefined || doc === null)) {
     return {
       wrote: false,
       path: configPath,
-      reason: error instanceof Error ? error.message : String(error),
+      reason: 'config-parse-error',
     };
   }
 
@@ -67,7 +70,7 @@ export const ensureWikiReference = async (directory) => {
     return { wrote: false, path: configPath, reason: 'already-present' };
   }
 
-  references.wiki = {
+  const wikiReference = {
     path: './.wiki',
     description:
       typeof existing === 'object' && existing && typeof existing.description === 'string'
@@ -75,24 +78,12 @@ export const ensureWikiReference = async (directory) => {
         : 'Project OpenWiki',
   };
 
-  // Never rewrite .jsonc as pretty JSON — that strips comments. Prefer a sibling opencode.json.
-  if (configPath.endsWith('.jsonc')) {
-    const jsonSibling = path.join(root, 'opencode.json');
-    if (!fs.existsSync(jsonSibling)) {
-      const nextJson = {
-        $schema: 'https://opencode.ai/config.json',
-        references: {
-          wiki: references.wiki,
-        },
-      };
-      await fsPromises.writeFile(jsonSibling, `${JSON.stringify(nextJson, null, 2)}\n`, 'utf8');
-      return { wrote: true, path: jsonSibling, reason: 'jsonc-sibling' };
-    }
-    return { wrote: false, path: configPath, reason: 'jsonc-skip' };
-  }
-
-  const next = { ...doc, references };
-  await fsPromises.writeFile(configPath, `${JSON.stringify(next, null, 2)}\n`, 'utf8');
+  // In-place minimal edit keeps comments, ordering, and formatting intact for
+  // both opencode.json and opencode.jsonc.
+  const edits = modify(raw, ['references', 'wiki'], wikiReference, {
+    formattingOptions: { insertSpaces: true, tabSize: 2 },
+  });
+  await fsPromises.writeFile(configPath, applyEdits(raw, edits), 'utf8');
   return { wrote: true, path: configPath };
 };
 
@@ -119,49 +110,4 @@ const isSameWikiReference = (entry) => {
   if (typeof entry === 'string') return true;
   const description = /** @type {{ description?: unknown }} */ (entry).description;
   return typeof description === 'string' && description.length > 0;
-};
-
-/**
- * Minimal JSONC strip: remove line and block comments outside strings.
- * @param {string} text
- */
-const stripJsonc = (text) => {
-  let out = '';
-  let i = 0;
-  let inString = false;
-  let quote = '';
-  let escaped = false;
-  while (i < text.length) {
-    const ch = text[i];
-    const next = text[i + 1];
-    if (inString) {
-      out += ch;
-      if (escaped) escaped = false;
-      else if (ch === '\\') escaped = true;
-      else if (ch === quote) inString = false;
-      i += 1;
-      continue;
-    }
-    if (ch === '"' || ch === "'") {
-      inString = true;
-      quote = ch;
-      out += ch;
-      i += 1;
-      continue;
-    }
-    if (ch === '/' && next === '/') {
-      i += 2;
-      while (i < text.length && text[i] !== '\n') i += 1;
-      continue;
-    }
-    if (ch === '/' && next === '*') {
-      i += 2;
-      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i += 1;
-      i += 2;
-      continue;
-    }
-    out += ch;
-    i += 1;
-  }
-  return out;
 };

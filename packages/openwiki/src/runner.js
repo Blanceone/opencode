@@ -258,6 +258,15 @@ const runJob = async ({ directory, command, model, language, userMessage }) => {
     setChild(directory, child);
     updateJob(directory, { childPid: child.pid });
 
+    // Without these handlers a failed spawn (EACCES, locked binary, ...) emits an
+    // uncaught 'error' event and 'close' never fires, leaving the job stuck in
+    // 'running' with no way to recover (recoverStaleBind sees a live child).
+    let spawnError = null;
+    child.on('error', (error) => {
+      spawnError = error;
+    });
+    child.stdin.on('error', () => {});
+
     child.stdin.write(JSON.stringify(payload));
     child.stdin.end();
 
@@ -288,6 +297,7 @@ const runJob = async ({ directory, command, model, language, userMessage }) => {
 
     const exitCode = await new Promise((resolve) => {
       child.on('close', (code) => resolve(code ?? 1));
+      child.on('error', () => resolve(null));
     });
     setChild(directory, null);
 
@@ -296,7 +306,15 @@ const runJob = async ({ directory, command, model, language, userMessage }) => {
       updateJob(directory, { stage: 'cancelled' });
       return;
     }
-    if (exitCode !== 0 && job?.stage !== 'completed' && job?.stage !== 'failed') {
+    if (spawnError) {
+      updateJob(directory, {
+        stage: 'failed',
+        error: {
+          code: 'openwiki-spawn-failed',
+          message: `Failed to start OpenWiki worker: ${spawnError.message}`,
+        },
+      });
+    } else if (exitCode !== 0 && job?.stage !== 'completed' && job?.stage !== 'failed') {
       updateJob(directory, {
         stage: 'failed',
         error: {

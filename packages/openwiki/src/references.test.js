@@ -38,15 +38,30 @@ describe('ensureWikiReference', () => {
     expect(doc.references.wiki.path).toBe('./docs');
   });
 
-  test('does not rewrite opencode.jsonc comments; writes sibling opencode.json', async () => {
+  test('preserves comments in opencode.json when adding wiki reference', async () => {
+    const dir = tmp();
+    const jsonc = '{\n  // keep me\n  "model": "opencode/big-pickle"\n}\n';
+    fs.writeFileSync(path.join(dir, 'opencode.json'), jsonc);
+    const result = await ensureWikiReference(dir);
+    expect(result.wrote).toBe(true);
+    const text = fs.readFileSync(path.join(dir, 'opencode.json'), 'utf8');
+    expect(text).toContain('// keep me');
+    expect(text).toContain('"model": "opencode/big-pickle"');
+    const errors = [];
+    const doc = JSON.parse(text.replace(/\/\/[^\n]*/g, ''));
+    expect(errors.length).toBe(0);
+    expect(doc.references.wiki.path).toBe('./.wiki');
+  });
+
+  test('edits opencode.jsonc in place without losing comments', async () => {
     const dir = tmp();
     const jsonc = '{\n  // keep me\n  "model": "opencode/big-pickle"\n}\n';
     fs.writeFileSync(path.join(dir, 'opencode.jsonc'), jsonc);
     const result = await ensureWikiReference(dir);
     expect(result.wrote).toBe(true);
-    expect(result.reason).toBe('jsonc-sibling');
-    expect(fs.readFileSync(path.join(dir, 'opencode.jsonc'), 'utf8')).toBe(jsonc);
-    const sibling = JSON.parse(fs.readFileSync(path.join(dir, 'opencode.json'), 'utf8'));
-    expect(sibling.references.wiki.path).toBe('./.wiki');
+    const text = fs.readFileSync(path.join(dir, 'opencode.jsonc'), 'utf8');
+    expect(text).toContain('// keep me');
+    expect(text).toContain('"./.wiki"');
+    expect(fs.existsSync(path.join(dir, 'opencode.json'))).toBe(false);
   });
 });

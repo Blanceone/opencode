@@ -696,6 +696,7 @@
       "dependencies": {
         "@opencode-ai/client": "workspace:*",
         "adm-zip": "0.6.0",
+        "jsonc-parser": "3.3.1",
       },
       "devDependencies": {
         "@tsconfig/bun": "catalog:",

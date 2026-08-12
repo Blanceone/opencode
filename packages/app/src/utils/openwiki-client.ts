@@ -25,9 +25,11 @@ export function createOpenWikiClient(input: {
       password: input.password,
     })}`
   }
-  if (input.directory) {
-    headers["x-opencode-directory"] = encodeURIComponent(input.directory)
-  }
+  // The wiki must always live in the open workspace's .wiki/. Without an
+  // explicit directory the server falls back to process.cwd(), which would
+  // silently place the wiki somewhere else.
+  if (!input.directory) throw new Error("OpenWiki requires the current workspace directory")
+  headers["x-opencode-directory"] = encodeURIComponent(input.directory)
   return OpenCode.make({
     baseUrl: input.baseUrl,
     fetch: input.fetch,
@@ -35,7 +37,8 @@ export function createOpenWikiClient(input: {
   }).openwikis
 }
 
-export function openWikiLocation(directory: string) {
+export function openWikiLocation(directory: string | undefined | null) {
+  if (!directory) throw new Error("OpenWiki requires the current workspace directory")
   return { directory }
 }
 

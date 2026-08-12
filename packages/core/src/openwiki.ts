@@ -1,5 +1,6 @@
 export * as OpenWiki from "./openwiki"
 
+import path from "path"
 import { OpenWiki as OpenWikiSchema } from "@opencode-ai/schema/openwiki"
 import { Context, Effect, Layer, Schema } from "effect"
 import { makeLocationNode } from "./effect/app-node"
@@ -49,9 +50,11 @@ export class AdapterError extends Schema.TaggedErrorClass<AdapterError>()("OpenW
 
 export type Error = AdapterError
 
-const wrap = <A>(promise: Promise<A>) =>
+// Thunk form so synchronous throws from argument evaluation (e.g. the
+// workspace-directory guard below) land on the typed error channel.
+const wrap = <A>(run: () => Promise<A>) =>
   Effect.tryPromise({
-    try: () => promise,
+    try: run,
     catch: (error) =>
       new AdapterError({
         message: error instanceof globalThis.Error ? error.message : String(error),
@@ -109,19 +112,32 @@ const layer = Layer.effect(
     const location = yield* Location.Service
     // Use the opened workspace directory, not project.directory.
     // For non-git folders Project.resolve falls back to the drive root (e.g. D:\).
-    const directory = () => location.directory
+    // The wiki always lives at <workspace>/.wiki; refuse filesystem roots so a
+    // missing request directory (server falls back to process.cwd()) can never
+    // place .wiki at a drive root.
+    const directory = () => {
+      const value = location.directory
+      if (!value || path.parse(value).root === value) {
+        throw new AdapterError({
+          message: `OpenWiki requires an open workspace directory, got "${value}"`,
+          code: "workspace-directory-invalid",
+          statusCode: 400,
+        })
+      }
+      return value
+    }
 
     return Service.of({
       status: (input) =>
-        wrap(
+        wrap(() =>
           getOpenWikiStatus({
             directory: directory(),
             model: input?.model,
             openWikiModelOverride: input?.openWikiModelOverride,
           }).then(decodeStatus),
         ),
-      formatGet: () => wrap(readFormatBundle(directory()).then(decodeFormat)),
-      formatPut: (input) => wrap(writeFormatBundle(directory(), input).then(decodeFormat)),
+      formatGet: () => wrap(() => readFormatBundle(directory()).then(decodeFormat)),
+      formatPut: (input) => wrap(() => writeFormatBundle(directory(), input).then(decodeFormat)),
       formatPresets: () =>
         Effect.succeed(
           FORMAT_PRESET_IDS.map((id) => {
@@ -134,7 +150,7 @@ const layer = Layer.effect(
           }),
         ),
       consent: (input) =>
-        wrap(
+        wrap(() =>
           applyConsentIfNeeded(directory(), {
             consent: input.consent,
             consentAction: input.consentAction,
@@ -143,7 +159,7 @@ const layer = Layer.effect(
             .then(decodeStatus),
         ),
       generate: (input) =>
-        wrap(
+        wrap(() =>
           startOpenWikiJob({
             directory: directory(),
             command: "init",
@@ -154,7 +170,7 @@ const layer = Layer.effect(
           }).then(decodeJob),
         ),
       update: (input) =>
-        wrap(
+        wrap(() =>
           startOpenWikiJob({
             directory: directory(),
             command: "update",
@@ -165,10 +181,10 @@ const layer = Layer.effect(
           }).then(decodeJob),
         ),
       job: () => Effect.sync(() => decodeJobOrNull(getJob(directory()))),
-      cancel: () => wrap(cancelOpenWikiJob(directory()).then(decodeJobOrNull)),
-      referenceSourcesList: () => wrap(listReferenceSources(directory()).then(decodeRefs)),
+      cancel: () => wrap(() => cancelOpenWikiJob(directory()).then(decodeJobOrNull)),
+      referenceSourcesList: () => wrap(() => listReferenceSources(directory()).then(decodeRefs)),
       referenceSourcesAdd: (input) =>
-        wrap(
+        wrap(() =>
           addReferenceSources(directory(), {
             files: input.files.map((file) => ({
               name: file.name,
@@ -178,13 +194,13 @@ const layer = Layer.effect(
             confirmLarge: input.confirmLarge,
           }).then(decodeRefs),
         ),
-      referenceSourcesRemove: (input) => wrap(removeReferenceSource(directory(), input.id).then(decodeRefs)),
+      referenceSourcesRemove: (input) => wrap(() => removeReferenceSource(directory(), input.id).then(decodeRefs)),
       formatDraft: () =>
-        wrap(
+        wrap(() =>
           readFormatDraft(directory()).then((draft) => decodeDraftEnvelope({ draft })),
         ),
       formatParse: (input) =>
-        wrap(
+        wrap(() =>
           startFormatParseJob({
             directory: directory(),
             model: input.model,
@@ -192,15 +208,15 @@ const layer = Layer.effect(
           }).then(decodeJob),
         ),
       formatMerge: (input) =>
-        wrap(
+        wrap(() =>
           mergeFormatDraft({
             directory: directory(),
             model: input.model,
             openWikiModelOverride: input.openWikiModelOverride,
           }).then(decodeMerge),
         ),
-      formatReset: () => wrap(resetFormatBundle(directory()).then(decodeFormat)),
-      exportDocx: () => wrap(buildWikiDocxExport(directory()).then(decodeDocx)),
+      formatReset: () => wrap(() => resetFormatBundle(directory()).then(decodeFormat)),
+      exportDocx: () => wrap(() => buildWikiDocxExport(directory()).then(decodeDocx)),
     })
   }),
 )
