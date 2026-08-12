@@ -1,6 +1,6 @@
 OpenCode 本机集成 — 工作进展与后续事项
 ============================================
-日期：2026-08-12（Stage N + Wiki 布局/工作区修复已提交 personal；oc-dist 已重打待手测）
+日期：2026-08-12（QA 审查 + P1 修复 + wiki 路径一致性加固已提交 personal；oc-dist 待重打）
 分支：personal（基于 origin/dev 浅克隆）
 远程：origin = https://github.com/Blanceone/opencode.git（同步用 origin/dev；本线推 origin/personal）
 本机约束：
@@ -57,6 +57,16 @@ OpenCode 本机集成 — 工作进展与后续事项
 - QA：openwiki 33 pass + schema status 2 + core/server/app/protocol typecheck；CLI status 非 git 目录正确
 - oc-dist 重打（~185MB，22:51）：含 Stage N + 布局/工作区修复；worker.mjs 已打入
 
+【提交 ff18155】fix(openwiki): harden worker spawn, preserve config comments, pin wiki to workspace
+QA 审查（CodeReview 全量 154 文件 + 人工复核）后修复：
+- P1 spawn：runner.js 加 child.on('error') + stdin EPIPE 兜底；退出 Promise 兼听 error；spawn 失败标 failed（openwiki-spawn-failed），不再永久卡 running/409
+- P1 配置：ensureWikiReference 改用 jsonc-parser modify/applyEdits 原位最小编辑，注释/键序/格式全保留（.json 与 .jsonc 统一）；新增依赖 jsonc-parser@3.3.1；测试 34 pass
+- 路径一致性：wiki 恒定 <工作区>/.wiki，三层防护——
+  1) core openwiki.ts：directory() 拒绝空目录/盘符根（400 workspace-directory-invalid）；wrap 改惰性 thunk 使守卫走类型化错误
+  2) App：createOpenWikiClient / openWikiLocation / fallback fetch 缺目录时显式报错，杜绝 server 回退 process.cwd()
+  3) TUI sidebar：refresh/run/consent 无目录时报 workspace directory unavailable，不再省略 location
+- 验证：openwiki 34 pass；core/server/app/tui typecheck 全绿
+
 三、本机验证
 ------------
 - bun test --cwd packages/openwiki：33 pass（含 stage-n / reclaim / ownership / worker-runtime）
@@ -97,6 +107,7 @@ OpenCode 本机集成 — 工作进展与后续事项
 
 仍开放：
   - Stage N4 安装包手测（导入 / parse-merge / 导出 / worker+Node；Word 当前浏览器下载）
+  - QA P2 遗留：startOpenWikiJob 检查与 createJob 间 TOCTOU 窗口；面板 setInterval 轮询无单飞保护（可重叠/旧响应回写）；worker-runtime.js 硬编码 D:\work\ai\builder_tools 默认值（环境泄漏，功能无害）
   - 多数 locale 仍英文；TUI 部分硬编码 EN
   - 付费模型 gateway E2E；CSC 签名；可选 job 落盘 .wiki
   - App vendored client tarball 仍可升级（当前走 openwiki/http-client + fallback）
@@ -125,6 +136,7 @@ OpenCode 本机集成 — 工作进展与后续事项
 【N4】验证与重打包（原 O4）— 部分完成
   - ✅ oc-dist 已重打（2026-08-12 22:51，含 Stage N + 布局/工作区修复）
   - ❌ 安装包手测：导入 / parse-merge / 导出 / worker+Node
+  - ❌ ff18155 修复后需再次重打 oc-dist（spawn/jsonc/路径修复未进当前安装包）
 
 刻意不做：官方 visualize、personal/MCP/PostHog、第二套模型登录、硬并进 Session V2
 
