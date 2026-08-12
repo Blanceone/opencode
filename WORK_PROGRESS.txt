@@ -48,7 +48,7 @@ OpenCode 本机集成 — 工作进展与后续事项
 - 模型：打开 Wiki 前 promote 会话模型；跟随 recent/当前选择；限流文案；脏格式防轮询覆盖
 - Bugbot 多轮：双 chrome、返回草稿、formatDirty 竞态、树 force refresh、筛选、窄屏 overflow
 
-【提交 e1a51ea】feat(openwiki): add Stage N reference parse export and wiki fixes
+【提交 3154edd】feat(openwiki): add Stage N reference parse export and wiki fixes
 - N1 adapter：reference-sources / format-parse / md-docx + stage-n.test.js（adm-zip）；parse-format job
 - N1 栈：Schema→Protocol→Server→Core；client regenerate（referenceSources* / formatParse|Merge|Draft|Reset / exportDocx）
 - N2 App：参考文档导入/移除；解析→草案→合并；Reset；Export Word（浏览器下载）；en+zh i18n
