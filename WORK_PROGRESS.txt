@@ -33,7 +33,7 @@ OpenCode 本机集成 — 工作进展与后续事项
 - dialog：工作区/Wiki 路径分列、归属文案、任务阶段+Spinner、生成中禁用、盘符根警告
 - schema：openwiki-status 编解码单测；i18n 全 locale 补键（en+zh 实译）
 
-【提交 679043a】feat(openwiki): harden F0-F4 client, packaging, and job reliability
+【提交 6d6d5c9】feat(openwiki): harden F0-F4 client, packaging, and job reliability
 - F0：App/TUI 经 @opencode-ai/openwiki/http-client → workspace client；会话页 Wiki 入口；TUI 传当前模型
 - F1：prepare 缺 bundle 失败（prod）；禁 Electron-as-Node；sidecar 注入 Node/worker；可读错误文案
 - F2：wikiExists=有 md；jsonc 不改写写 sibling；regenerate 确认；language mojibake
