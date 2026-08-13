@@ -1,5 +1,7 @@
 import { base64Encode } from "@opencode-ai/core/util/encode"
 import { ServerConnection } from "@/context/server"
+import { useServer } from "@/context/server"
+import { useTabs } from "@/context/tabs"
 import { decode64 } from "@/utils/base64"
 
 export function sessionHref(server: ServerConnection.Key, sessionID: string) {
@@ -22,11 +24,28 @@ export function openWikiPage(input: {
   from: string
   sessionID?: string
   promoteSession?: (directory: string, sessionID: string) => void
+  // Remember the wiki as open for the originating session so switching back
+  // to that session restores the wiki page.
+  remember?: () => void
 }) {
   if (input.sessionID && input.promoteSession) {
     input.promoteSession(input.directory, input.sessionID)
   }
+  input.remember?.()
   input.navigate(wikiHref(input.directory, input.from))
+}
+
+// Marks the wiki page as open for the current session so the session route
+// restores it when the user switches back to that session's tab. The server
+// key must match the one used by the session's tab (route param in the new
+// layout, selected server otherwise).
+export function useRememberWiki() {
+  const server = useServer()
+  const tabs = useTabs()
+  return (sessionID: string | undefined, serverKey?: ServerConnection.Key) => {
+    if (!sessionID) return
+    tabs.setWiki({ type: "session", server: serverKey ?? server.key, sessionId: sessionID }, true)
+  }
 }
 export function requireServerKey(segment: string | undefined) {
   const key = decode64(segment)

@@ -8,7 +8,7 @@ import { getFilename } from "@opencode-ai/core/util/path"
 import { useLanguage } from "@/context/language"
 import { useLocal } from "@/context/local"
 import { useSDK } from "@/context/sdk"
-import { openWikiPage } from "@/utils/session-route"
+import { openWikiPage, requireServerKey, useRememberWiki } from "@/utils/session-route"
 
 export function PromptWorkspaceSelector(props: {
   value: string
@@ -138,6 +138,7 @@ export function PromptWikiButton(props: { onDone?: () => void }) {
   const params = useParams()
   const local = useLocal()
   const sdk = useSDK()
+  const rememberWiki = useRememberWiki()
 
   const open = () => {
     const directory = sdk().directory
@@ -148,6 +149,7 @@ export function PromptWikiButton(props: { onDone?: () => void }) {
       from: location.pathname + location.search,
       sessionID: params.id,
       promoteSession: (dir, sessionID) => local.session.promote(dir, sessionID),
+      remember: () => rememberWiki(params.id, params.serverKey ? requireServerKey(params.serverKey) : undefined),
     })
     props.onDone?.()
   }

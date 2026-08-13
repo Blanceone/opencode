@@ -29,7 +29,7 @@ import { messageAgentColor } from "@/utils/agent"
 import { decode64 } from "@/utils/base64"
 import { fileManagerApp } from "@/utils/file-manager"
 import { Persist, persisted } from "@/utils/persist"
-import { openWikiPage } from "@/utils/session-route"
+import { openWikiPage, requireServerKey, useRememberWiki } from "@/utils/session-route"
 import { StatusPopover, StatusPopoverV2 } from "../status-popover"
 import { IconButtonV2 } from "@opencode-ai/ui/v2/icon-button-v2"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
@@ -155,6 +155,7 @@ export function SessionHeader() {
   const sdk = useSDK()
   const local = useLocal()
   const { params, view } = useSessionLayout()
+  const rememberWiki = useRememberWiki()
 
   const projectDirectory = createMemo(() => decode64(params.dir) ?? sdk().directory ?? "")
 
@@ -168,6 +169,7 @@ export function SessionHeader() {
       from,
       sessionID: params.id,
       promoteSession: (dir, sessionID) => local.session.promote(dir, sessionID),
+      remember: () => rememberWiki(params.id, params.serverKey ? requireServerKey(params.serverKey) : undefined),
     })
   }
 

@@ -100,6 +100,7 @@ import { Persist, persisted } from "@/utils/persist"
 import { extractPromptFromParts } from "@/utils/prompt"
 import { formatServerError, isLocalSessionNotFoundError, isSessionNotFoundError } from "@/utils/server-errors"
 import { legacySessionHref, requireServerKey, sessionHref } from "@/utils/session-route"
+import { SessionWikiRedirect } from "@/components/session-wiki-redirect"
 import { useUsageExceededDialogs } from "./session/usage-exceeded-dialogs"
 import { createSessionOwnership } from "./session/session-ownership"
 import { createSessionLineage } from "./session/session-lineage"
@@ -163,12 +164,14 @@ export function TargetSessionRouteContent() {
   return (
     // Settings must keep the target-server SDK, sync, and models context and remain registered
     // when session content falls back to the route error boundary.
-    <TargetServerScopedProviders directory={directory} sessionID={() => params.id}>
-      <TargetSessionSettingsCommand />
-      <SessionRouteErrorBoundary sessionID={params.id} serverKey={requireServerKey(params.serverKey)} padded>
-        <ResolvedTargetSessionRoute />
-      </SessionRouteErrorBoundary>
-    </TargetServerScopedProviders>
+    <SessionWikiRedirect server={requireServerKey(params.serverKey)} sessionID={params.id} directory={directory}>
+      <TargetServerScopedProviders directory={directory} sessionID={() => params.id}>
+        <TargetSessionSettingsCommand />
+        <SessionRouteErrorBoundary sessionID={params.id} serverKey={requireServerKey(params.serverKey)} padded>
+          <ResolvedTargetSessionRoute />
+        </SessionRouteErrorBoundary>
+      </TargetServerScopedProviders>
+    </SessionWikiRedirect>
   )
 }
 

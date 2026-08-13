@@ -63,10 +63,11 @@ import LegacyLayout from "@/pages/layout"
 import NewLayout from "@/pages/layout-new"
 import { ErrorPage } from "./pages/error"
 import { useCheckServerHealth } from "./utils/server-health"
-import { legacySessionHref, legacySessionServer, requireServerKey, sessionHref } from "./utils/session-route"
+import { legacySessionHref, legacySessionServer, requireServerKey, sessionHref, wikiHref } from "./utils/session-route"
 import { createSessionLineage } from "@/pages/session/session-lineage"
 
 import { SessionPage, SessionRouteErrorBoundary, TargetSessionRouteContent } from "@/pages/session"
+import { SessionWikiRedirect } from "@/components/session-wiki-redirect"
 import { NewHome } from "@/pages/home"
 import { LegacyHome } from "@/pages/home/legacy-home"
 
@@ -103,9 +104,11 @@ const SessionRoute = () => {
   })
 
   return (
-    <SessionRouteErrorBoundary sessionID={params.id}>
-      <SessionPage />
-    </SessionRouteErrorBoundary>
+    <SessionWikiRedirect server={server.key} sessionID={params.id} directory={() => sdk().directory}>
+      <SessionRouteErrorBoundary sessionID={params.id}>
+        <SessionPage />
+      </SessionRouteErrorBoundary>
+    </SessionWikiRedirect>
   )
 }
 

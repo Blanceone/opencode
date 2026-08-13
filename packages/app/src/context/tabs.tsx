@@ -66,6 +66,9 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
     )
     const [recent, setRecent, , recentReady] = persisted(Persist.window("tabs.recent"), createStore<RecentTab>({}))
     const [info, setInfo] = persisted(Persist.window("tabs.info"), createStore<Record<string, TabInfo>>({}))
+    // Sessions whose wiki page was open when the user last left them; the session
+    // route redirects back to the wiki page until the user leaves it via back.
+    const [wiki, setWikiStore, , wikiReady] = persisted(Persist.window("tabs.wiki"), createStore<Record<string, boolean>>({}))
     const [closed, setClosed, , closedReady] = persisted(Persist.window("tabs.closed"), createStore<ClosedTab[]>([]))
 
     const params = useParams()
@@ -116,6 +119,21 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
       )
     }
 
+    const removeWiki = (key: string) => {
+      if (!wiki[key]) return
+      const apply = () =>
+        setWikiStore(
+          produce((draft) => {
+            delete draft[key]
+          }),
+        )
+      if (wikiReady()) {
+        apply()
+        return
+      }
+      void wikiReady.promise?.then(apply)
+    }
+
     onCleanup(memory.dispose)
 
     createEffect(() => {
@@ -128,6 +146,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
             const key = tabKey(tab)
             memory.remove(key)
             removeInfo(key)
+            removeWiki(key)
           }
         }
         setStore(() => next)
@@ -136,6 +155,9 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
       const keys = new Set(next.map(tabKey))
       for (const key of Object.keys(info)) {
         if (!keys.has(key)) removeInfo(key)
+      }
+      for (const key of Object.keys(wiki)) {
+        if (!keys.has(key)) removeWiki(key)
       }
     })
 
@@ -173,6 +195,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
       }).finally(() => closing.delete(key))
       memory.remove(key)
       removeInfo(key)
+      removeWiki(key)
       if (draftID) removeDraftPersisted(draftID)
     }
 
@@ -291,6 +314,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
         setStore((tabs) => tabs.filter((tab) => tab.server !== key))
         for (const key of removed) memory.remove(key)
         for (const key of removed) removeInfo(key)
+        for (const key of removed) removeWiki(key)
         if (recent.key && removed.includes(recent.key)) setRecentKey(undefined)
         for (const draftID of drafts) removeDraftPersisted(draftID)
         if (server.key === key) navigate("/")
@@ -346,6 +370,7 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
         })
         for (const key of removed) memory.remove(key)
         for (const key of removed) removeInfo(key)
+        for (const key of removed) removeWiki(key)
       },
       rememberSessionInfo(tab: SessionTab, session: Session) {
         const key = tabKey(tab)
@@ -353,6 +378,21 @@ export const { use: useTabs, provider: TabsProvider } = createSimpleContext({
         const current = info[key]
         if (current?.title === next.title && current.directory === next.directory) return
         setInfo(key, next)
+      },
+      setWiki(tab: SessionTab, open: boolean) {
+        const key = tabKey(tab)
+        const apply = () => {
+          if (open) setWikiStore(key, true)
+          else removeWiki(key)
+        }
+        if (wikiReady()) {
+          apply()
+          return
+        }
+        void wikiReady.promise?.then(apply)
+      },
+      wikiOpen(tab: Tab) {
+        return !!wiki[tabKey(tab)]
       },
       select: navigateTab,
       remember(tab: Tab) {
