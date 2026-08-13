@@ -1,6 +1,6 @@
 OpenCode 本机集成 — 工作进展与后续事项
 ============================================
-日期：2026-08-12（QA 审查 + P1 修复 + wiki 路径一致性加固已提交 personal；oc-dist 待重打）
+日期：2026-08-13（oc-dist 已重打：含 ff18155 spawn/jsonc/路径修复）
 分支：personal（基于 origin/dev 浅克隆）
 远程：origin = https://github.com/Blanceone/opencode.git（同步用 origin/dev；本线推 origin/personal）
 本机约束：
@@ -71,7 +71,7 @@ QA 审查（CodeReview 全量 154 文件 + 人工复核）后修复：
 ------------
 - bun test --cwd packages/openwiki：33 pass（含 stage-n / reclaim / ownership / worker-runtime）
 - bun typecheck：packages/core、packages/server、packages/app、packages/protocol 通过
-- 重打 depends/oc-dist（2026-08-12 22:51）：含 Stage N + 布局/工作区修复；解包 OpenCode.exe
+- 重打 depends/oc-dist（2026-08-13 22:51）：含 ff18155（spawn EPIPE 兜底 / jsonc 原位编辑 / wiki 路径三层防护）+ Stage N + 布局/工作区修复；worker.mjs 已打入；解包 OpenCode.exe（231MB）
 - 未做：付费模型 E2E；代码签名；vendored client tarball 升级含 openwikis；安装包内置 Node；干净无 Node 机回归
 
 四、自定义 / 自部署模型影响（结论）
@@ -82,7 +82,7 @@ QA 审查（CodeReview 全量 154 文件 + 人工复核）后修复：
 
 五、安装产物（本机 depends/oc-dist，gitignored）
 ----------------------------------------------
-  depends/oc-dist/opencode-desktop-win-x64.exe   (~177MB，含 Stage N + Wiki 修复)
+  depends/oc-dist/opencode-desktop-win-x64.exe   (~176MB，含 ff18155 + Stage N + Wiki 修复)
   depends/oc-dist/win-unpacked/OpenCode.exe
   win-unpacked/resources/openwiki/worker.mjs
 
@@ -134,9 +134,8 @@ QA 审查（CodeReview 全量 154 文件 + 人工复核）后修复：
   - Export Word 按钮已接到 N2
 
 【N4】验证与重打包（原 O4）— 部分完成
-  - ✅ oc-dist 已重打（2026-08-12 22:51，含 Stage N + 布局/工作区修复）
+  - ✅ oc-dist 已重打（2026-08-13 22:51，含 ff18155 + Stage N + 布局/工作区修复）
   - ❌ 安装包手测：导入 / parse-merge / 导出 / worker+Node
-  - ❌ ff18155 修复后需再次重打 oc-dist（spawn/jsonc/路径修复未进当前安装包）
 
 刻意不做：官方 visualize、personal/MCP/PostHog、第二套模型登录、硬并进 Session V2
 
@@ -163,4 +162,4 @@ bun ./scripts/prepare-openwiki.ts   # packages/desktop
 ------------------------
 F0–F4 后重打 oc-dist 成功；resources/openwiki/worker.mjs 已打入；用户确认 OpenWiki 可运行。
 全页 Wiki UI 后重打 oc-dist；Status encode / asar worker 路径问题已在 aaeec29 修复。
-Stage N + Wiki 修复后重打 oc-dist（2026-08-12 22:51）：reference/parse/export API、布局铺满、工作区路径修复；安装包手测仍待做。
+Stage N + Wiki 修复后重打 oc-dist（2026-08-13 22:51）：含 ff18155（spawn EPIPE 兜底 / jsonc 保留注释 / wiki 路径固定工作区）；安装包手测仍待做。

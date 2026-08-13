@@ -1,8 +1,8 @@
 # AGENTS.md
 
-This file provides guidance to Qoder (qoder.com) when working with code in this repository.
-
 OpenCode is an open-source AI coding agent: a CLI/TUI plus headless server, web app, and desktop app. It is a Bun + Turborepo monorepo; require Bun 1.3+ and always use `;` instead of `&&` in PowerShell.
+
+Package-local `AGENTS.md` files exist and take precedence for their areas (`packages/opencode`, `packages/app`, `packages/app/e2e`, `packages/desktop`, `packages/llm`, `packages/schema`, `packages/codemode`, `packages/core/src/tool`, `packages/effect-drizzle-sqlite`, `packages/opencode/test`, `packages/opencode/src/server/routes/instance/httpapi`, `packages/opencode/src/session/llm`). Read the relevant one before editing there. `CONTEXT.md` is the authoritative domain vocabulary; `specs/v2/*` and `packages/opencode/specs/effect/*` hold design docs.
 
 ## Commands
 
@@ -13,28 +13,31 @@ All commands assume `bun install` has been run at the repo root.
 - `bun dev` — run the CLI/TUI locally (equivalent of the built `opencode` binary); defaults to running against `packages/opencode`, use `bun dev <directory>` for another repo
 - `bun dev serve [--port 8080]` — start the headless API server (default port 4096)
 - `bun dev web` — start the server and open the web interface
-- `bun run dev:web` — run the web app (`packages/app`, Vite) against an already-running server
+- `bun run dev:web` — run the web app (`packages/app`, Vite) against an already-running server. Note `bun dev web` proxies https://app.opencode.ai, so local UI changes need the separate backend + `bun dev -- --port 4444` setup described in `packages/app/AGENTS.md`
 - `bun run dev:desktop` — run the Electron desktop app (`packages/desktop`)
 - `bun run dev:storybook` — component playground (`packages/storybook`)
 
 ### Test
 
-Tests MUST be run from a package directory, never the repo root (root `bun test` is guarded by `do-not-run-tests-from-root`):
+Tests MUST be run from a package directory, never the repo root (root `bun test` is guarded via `bunfig.toml`); `bun turbo test` at root is how CI runs them and is fine:
 
 - `bun test` from `packages/opencode`, `packages/core`, `packages/app`, `packages/ui`, `packages/session-ui`, or `packages/llm`
 - Single test file: `bun test test/foo.test.ts`; single test by name: `bun test -t "test name"`
 - The `--only-failures` flag is in the package test scripts; drop it for a full clean run
 - `bun run test:httpapi` in `packages/opencode` exercises the public HTTP API (coverage/auth/effect modes)
+- App unit tests use `test:unit` (happy-dom, `--conditions=solid`) and `test:browser`; e2e: `bun run test:e2e:local` from `packages/app` (install browsers first with `bunx playwright install chromium`) — see `packages/app/e2e/AGENTS.md`
 
 ### Check
 
 - Typecheck: `bun typecheck` from a package directory (runs `tsgo --noEmit`), or `bun turbo typecheck` at root. Never run `tsc` directly.
 - Lint: `bun lint` at root (oxlint)
+- The git pre-push hook re-runs `bun typecheck` for the whole repo and enforces the pinned Bun version from `package.json`'s `packageManager` — expect push failures if the full repo does not typecheck
 
 ### Build and codegen
 
 - Standalone executable: `./packages/opencode/script/build.ts --single`, output in `packages/opencode/dist/opencode-<platform>/bin/opencode`
-- After changing `packages/opencode/src/server/server.ts` or the public API/SDK: run `./script/generate.ts` at root (regenerates legacy SDK, OpenAPI spec, and formatting)
+- After changing `packages/opencode/src/server/server.ts` or the public API/SDK: run `./script/generate.ts` at root (builds the legacy JS SDK, regenerates `packages/sdk/openapi.json` via `bun dev generate`, then formats). CI runs it and commits any diffs on pushes to `dev`, so keep generated output current
+- The generated client: `bun run generate` from `packages/client` (never edit `src/generated` / `src/generated-effect` by hand); CI gates drift with `bun run check:generated`
 - Desktop packaging: `bun run --cwd packages/desktop build`, then `package`
 
 ## Architecture
@@ -54,11 +57,16 @@ sdk-next → client + core + server (in-process composition)
 - `core` — domain logic: Effect-based services, SQLite via Drizzle (`effect-drizzle-sqlite`), session execution, system context, tools, permissions, PTY, filesystem. Uses conditional `imports` (`#sqlite`, `#pty`, `#fff`) to pick bun vs node implementations
 - `server` — hosts protocol groups as the authoritative concrete `HttpApi`; owns protocol/domain adaptation
 - `client` — generated Promise (zero-Effect, root export) and Effect (`/effect` export) clients from the `HttpApi`; `src/generated` and `src/generated-effect` are codegen output — regenerate via `bun run generate` from `packages/client`, never edit by hand
+- `httpapi-codegen` — the codegen engine used by `packages/client`'s generate script
+- `http-recorder` — record/replay of LLM HTTP traffic used by tests
+- `plugin` — source for `@opencode-ai/plugin` (plugin API shared by opencode/server/sdk)
+- `codemode` — confined code execution over schema-described tools (Effect-native); see `packages/codemode/AGENTS.md`
 - `sdk-next` — in-process "Embedded OpenCode" host that runs the server's router in memory (no network listener)
 - `llm` — provider-neutral LLM streaming layer over AI SDK providers
 - `opencode` — the product package: CLI (yargs), server bootstrap, session runtime, agent/tool/provider wiring, TUI. Most day-to-day changes land here
-- UI stack, all SolidJS: `tui` (terminal UI on `@opentui/solid`), `app` (shared web UI, Vite), `ui` (shared component library), `session-ui`, `desktop` (Electron wrapping `app`), `storybook`
-- `sdk/js` — the legacy generated JavaScript SDK
+- UI stack, all SolidJS: `tui` (terminal UI on `@opentui/solid`), `app` (shared web UI, Vite), `ui` (shared component library), `session-ui`, `desktop` (Electron wrapping `app`), `storybook`; `web` is the Astro/Starlight docs site, `console`/`stats` are the internal dashboard apps
+- `sdk` — legacy generated JavaScript SDK under `packages/sdk/js` plus the OpenAPI spec `packages/sdk/openapi.json`
+- Other workspaces: `enterprise`, `containers`, `identity`, `function`, `cli`, `slack`, `openwiki` (`.wiki/` adapter, must run under Node not Bun)
 
 ### Runtime layers in `packages/opencode`
 
