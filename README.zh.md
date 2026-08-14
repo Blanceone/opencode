@@ -43,6 +43,21 @@
 
 ---
 
+> [!NOTE]
+> 本构建是在 OpenCode 基础上嵌入了 OpenWiki 文档组件功能的定制版本（维护于 `personal` 分支）。
+
+### OpenWiki
+
+本版本的 OpenCode 内嵌了 **OpenWiki** —— 一个 code-mode 文档组件，可在 `<project>/.wiki/` 下生成并维护项目 Wiki：
+
+- 桌面应用中提供全页 Wiki 界面：状态、生成/更新、预设、格式编辑、参考文档、文件树与预览、Word 导出
+- `wiki_read` / `wiki_search` 工具（限定在 `.wiki/` 内）让 Wiki 可供 agent 使用
+- Wiki 跟随 OpenCode 当前选择的模型；文档语言固定为 `zh-CN`
+- 密钥留在父进程（任务级 loopback gateway），Wiki worker 子进程始终运行于 Node.js
+- 检测到外来或冲突的 `.wiki` 内容时提供显式授权流程
+
+---
+
 ### 安装
 
 ```bash

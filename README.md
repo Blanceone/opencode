@@ -43,6 +43,21 @@
 
 ---
 
+> [!NOTE]
+> This build is a customized OpenCode with the OpenWiki documentation component embedded (maintained on the `personal` branch).
+
+### OpenWiki
+
+OpenCode here embeds **OpenWiki**, a code-mode documentation agent that generates and maintains a project wiki under `<project>/.wiki/`:
+
+- Full-page wiki UI in the desktop app: status, generate/update, presets, format editing, reference documents, file tree with preview, and Word export
+- `wiki_read` / `wiki_search` tools, sandboxed to `.wiki/`, make the wiki available to agents
+- The wiki follows OpenCode's current model selection; document language is fixed to `zh-CN`
+- Secrets stay in the parent process (job-scoped loopback gateway); the wiki worker child always runs under Node.js
+- Consent flow when foreign or conflicting `.wiki` content is detected
+
+---
+
 ### Installation
 
 ```bash
