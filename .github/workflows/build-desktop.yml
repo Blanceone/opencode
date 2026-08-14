@@ -1,0 +1,87 @@
+name: build-desktop
+
+on:
+  push:
+    branches:
+      - personal
+      - ci
+    paths:
+      - "packages/**"
+      - "!packages/web/**"
+      - "!packages/console/**"
+      - "!packages/stats/**"
+      - "!packages/slack/**"
+      - "!packages/enterprise/**"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/build-desktop.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: build-desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Prepare OpenWiki bundle from npm
+        shell: bash
+        run: |
+          mkdir -p depends/openwiki-bundle/0.3.1
+          npm install --omit=dev --prefix depends/openwiki-bundle/0.3.1 openwiki@0.3.1
+          test -f depends/openwiki-bundle/0.3.1/node_modules/openwiki/dist/agent/index.js
+
+      - name: Build desktop
+        shell: bash
+        env:
+          OPENCODE_CHANNEL: prod
+          OPENCODE_PRODUCT_NAME: OpenCode
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          MODELS_DEV_API_JSON: ${{ github.workspace }}/packages/opencode/test/tool/fixtures/models-api.json
+        run: bun run --cwd packages/desktop build
+
+      - name: Package Windows installer
+        shell: bash
+        env:
+          OPENCODE_CHANNEL: prod
+          OPENCODE_PRODUCT_NAME: OpenCode
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          MODELS_DEV_API_JSON: ${{ github.workspace }}/packages/opencode/test/tool/fixtures/models-api.json
+        run: bun run --cwd packages/desktop package
+
+      - name: Verify OpenWiki resources
+        shell: bash
+        run: |
+          test -f packages/desktop/dist/win-unpacked/resources/openwiki/worker.mjs
+          test -f packages/desktop/dist/win-unpacked/resources/openwiki/dist/agent/index.js
+          test -f packages/desktop/dist/win-unpacked/resources/openwiki/vendor_modules/@langchain/openai/package.json
+          test -f packages/desktop/dist/opencode-desktop-win-x64.exe
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: opencode-desktop-win-x64
+          path: |
+            packages/desktop/dist/opencode-desktop-win-x64.exe
+            packages/desktop/dist/opencode-desktop-win-x64.exe.blockmap
+            packages/desktop/dist/latest.yml
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload win-unpacked
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: opencode-desktop-win-unpacked
+          path: packages/desktop/dist/win-unpacked
+          if-no-files-found: error
+          retention-days: 14
