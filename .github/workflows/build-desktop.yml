@@ -58,7 +58,7 @@ jobs:
           OPENCODE_PRODUCT_NAME: OpenCode
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
           MODELS_DEV_API_JSON: ${{ github.workspace }}/packages/opencode/test/tool/fixtures/models-api.json
-        run: bun run --cwd packages/desktop package
+        run: bun run --cwd packages/desktop package -- --publish never
 
       - name: Verify OpenWiki resources
         shell: bash
@@ -116,18 +116,18 @@ jobs:
           OPENCODE_PRODUCT_NAME: OpenCode
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
           MODELS_DEV_API_JSON: ${{ github.workspace }}/packages/opencode/test/tool/fixtures/models-api.json
-        run: cd packages/desktop && bunx electron-builder --linux AppImage --config electron-builder.config.ts
+        run: cd packages/desktop && bunx electron-builder --linux AppImage --config electron-builder.config.ts --publish never
 
       - name: Verify OpenWiki resources
         run: |
           test -f packages/desktop/dist/linux-unpacked/resources/openwiki/worker.mjs
           test -f packages/desktop/dist/linux-unpacked/resources/openwiki/dist/agent/index.js
           test -f packages/desktop/dist/linux-unpacked/resources/openwiki/vendor_modules/@langchain/openai/package.json
-          test -f packages/desktop/dist/opencode-desktop-linux-x64.AppImage
+          test -f packages/desktop/dist/opencode-desktop-linux-x86_64.AppImage
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: opencode-desktop-linux-x64
-          path: packages/desktop/dist/opencode-desktop-linux-x64.AppImage
+          path: packages/desktop/dist/opencode-desktop-linux-x86_64.AppImage
           if-no-files-found: error
           retention-days: 30
