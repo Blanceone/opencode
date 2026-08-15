@@ -1,6 +1,6 @@
 OpenCode 本机集成 — 工作进展与后续事项
 ============================================
-日期：2026-08-13（oc-dist 已重打：含 ff18155 spawn/jsonc/路径修复）
+日期：2026-08-13（QA P2 修复已提交 d55ba9b；oc-dist 已含 ff18155，待再次重打含 d55ba9b）
 分支：personal（基于 origin/dev 浅克隆）
 远程：origin = https://github.com/Blanceone/opencode.git（同步用 origin/dev；本线推 origin/personal）
 本机约束：
@@ -67,9 +67,17 @@ QA 审查（CodeReview 全量 154 文件 + 人工复核）后修复：
   3) TUI sidebar：refresh/run/consent 无目录时报 workspace directory unavailable，不再省略 location
 - 验证：openwiki 34 pass；core/server/app/tui typecheck 全绿
 
+【提交 d55ba9b】fix(openwiki): close job admission race, single-flight panel polling, drop hardcoded toolchain path
+QA 审查 P2 遗留全部关闭：
+- TOCTOU：job-store 新增 acquireJobAdmission 准入锁（与 isJobActive 联合判定，重复请求 409 job-in-progress）；startOpenWikiJob / startFormatParseJob 从检查到 createJob 落地的全部 await 持锁，finally 释放，消除双 spawn 窗口
+- 轮询：openwiki-panel refresh 加单飞守卫，上一轮请求未完成时跳过 tick，杜绝重叠/旧响应回写
+- 环境泄漏：worker-runtime.js 删除 D:\work\ai\builder_tools 默认值，OPENCODE_BUILDER_TOOLS 改纯 opt-in（本机行为不变）
+- 验证：openwiki 37 pass（新增 job-store.test.js 准入锁 3 用例）；app typecheck 通过
+- 至此 QA 审查 2 P1 + 3 P2 全部关闭
+
 三、本机验证
 ------------
-- bun test --cwd packages/openwiki：33 pass（含 stage-n / reclaim / ownership / worker-runtime）
+- bun test --cwd packages/openwiki：37 pass（含 stage-n / reclaim / ownership / worker-runtime / job-store 准入锁）
 - bun typecheck：packages/core、packages/server、packages/app、packages/protocol 通过
 - 重打 depends/oc-dist（2026-08-13 22:51）：含 ff18155（spawn EPIPE 兜底 / jsonc 原位编辑 / wiki 路径三层防护）+ Stage N + 布局/工作区修复；worker.mjs 已打入；解包 OpenCode.exe（231MB）
 - 未做：付费模型 E2E；代码签名；vendored client tarball 升级含 openwikis；安装包内置 Node；干净无 Node 机回归
@@ -107,7 +115,6 @@ QA 审查（CodeReview 全量 154 文件 + 人工复核）后修复：
 
 仍开放：
   - Stage N4 安装包手测（导入 / parse-merge / 导出 / worker+Node；Word 当前浏览器下载）
-  - QA P2 遗留：startOpenWikiJob 检查与 createJob 间 TOCTOU 窗口；面板 setInterval 轮询无单飞保护（可重叠/旧响应回写）；worker-runtime.js 硬编码 D:\work\ai\builder_tools 默认值（环境泄漏，功能无害）
   - 多数 locale 仍英文；TUI 部分硬编码 EN
   - 付费模型 gateway E2E；CSC 签名；可选 job 落盘 .wiki
   - App vendored client tarball 仍可升级（当前走 openwiki/http-client + fallback）
@@ -136,6 +143,7 @@ QA 审查（CodeReview 全量 154 文件 + 人工复核）后修复：
 【N4】验证与重打包（原 O4）— 部分完成
   - ✅ oc-dist 已重打（2026-08-13 22:51，含 ff18155 + Stage N + 布局/工作区修复）
   - ❌ 安装包手测：导入 / parse-merge / 导出 / worker+Node
+  - ❌ d55ba9b（准入锁/单飞轮询/去硬编码）后需再次重打 oc-dist
 
 刻意不做：官方 visualize、personal/MCP/PostHog、第二套模型登录、硬并进 Session V2
 
