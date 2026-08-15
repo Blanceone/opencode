@@ -317,13 +317,16 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   const chooseWiki = () => {
     const directory = sdk().directory
     if (!directory) return
+    const serverKey = params.serverKey ? requireServerKey(params.serverKey) : undefined
+    rememberWiki(params.id, serverKey)
+    if (settings.general.newLayoutDesigns()) return
     openWikiPage({
       navigate,
       directory,
       from: location.pathname + location.search,
       sessionID: params.id,
       promoteSession: (dir, sessionID) => local.session.promote(dir, sessionID),
-      remember: () => rememberWiki(params.id, params.serverKey ? requireServerKey(params.serverKey) : undefined),
+      remember: () => rememberWiki(params.id, serverKey),
     })
   }
 

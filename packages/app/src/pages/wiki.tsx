@@ -31,7 +31,7 @@ function sessionFromPath(from: string, fallback: ServerConnection.Key) {
   if (legacy) return { server: fallback, sessionId: legacy[2] }
 }
 
-export default function WikiPage() {
+export default function WikiPage(props: { onBack?: () => void }) {
   const language = useLanguage()
   const navigate = useNavigate()
   const sdk = useSDK()
@@ -41,7 +41,7 @@ export default function WikiPage() {
 
   const directory = createMemo(() => sdk().directory)
 
-  const back = () => {
+  const defaultBack = () => {
     const from = safeReturnPath(search.from)
     if (from) {
       // Clear the restore flag before navigating so the session route does
@@ -52,6 +52,14 @@ export default function WikiPage() {
       return
     }
     navigate(-1)
+  }
+
+  const back = () => {
+    if (props.onBack) {
+      props.onBack()
+      return
+    }
+    defaultBack()
   }
 
   return (

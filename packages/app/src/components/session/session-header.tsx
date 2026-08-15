@@ -162,6 +162,9 @@ export function SessionHeader() {
   const openWiki = () => {
     const directory = projectDirectory()
     if (!directory) return
+    const serverKey = params.serverKey ? requireServerKey(params.serverKey) : undefined
+    rememberWiki(params.id, serverKey)
+    if (settings.general.newLayoutDesigns()) return
     const from = location.pathname + location.search
     openWikiPage({
       navigate,
@@ -169,7 +172,7 @@ export function SessionHeader() {
       from,
       sessionID: params.id,
       promoteSession: (dir, sessionID) => local.session.promote(dir, sessionID),
-      remember: () => rememberWiki(params.id, params.serverKey ? requireServerKey(params.serverKey) : undefined),
+      remember: () => rememberWiki(params.id, serverKey),
     })
   }
 

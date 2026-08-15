@@ -653,11 +653,30 @@ function Routes(props: { serverScoped?: JSX.Element }) {
           <Route path="/session/:id?" component={SessionRoute} />
           <Route
             path="/wiki"
-            component={() => (
-              <Suspense fallback={null}>
-                <WikiPage />
-              </Suspense>
-            )}
+            component={() => {
+              const isNewLayout = settings.general.newLayoutDesigns()
+              const [search] = useSearchParams<{ from?: string }>()
+              const navigate = useNavigate()
+              const tabs = useTabs()
+              createEffect(() => {
+                if (!isNewLayout) return
+                if (!tabs.ready()) return
+                const from = search.from
+                const m = from?.match(/^\/server\/([^/]+)\/session\/([^/?]+)/)
+                if (m) {
+                  navigate(from!, { replace: true })
+                  return
+                }
+                navigate("/", { replace: true })
+              })
+              return (
+                <Show when={!isNewLayout}>
+                  <Suspense fallback={null}>
+                    <WikiPage />
+                  </Suspense>
+                </Show>
+              )
+            }}
           />
         </Route>
       </Route>

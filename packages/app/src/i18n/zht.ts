@@ -1228,6 +1228,7 @@ export const dict = {
   "page.openwiki.title": "OpenWiki",
   "page.openwiki.description": "產生並管理專案 .wiki 知識庫。使用 OpenCode 目前選取的模型。",
   "page.openwiki.back": "返回工作階段",
+  "dialog.openwiki.backWithActiveJob": "Wiki 產生任務正在執行中，返回將終止該任務。確認繼續？",
   "page.openwiki.status.title": "狀態",
   "page.openwiki.actions.title": "操作",
   "page.openwiki.format.hidden": "格式編輯器已隱藏。按「顯示格式」可編輯說明與 FORMAT.md。",
