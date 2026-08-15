@@ -75,6 +75,11 @@ QA 审查 P2 遗留全部关闭：
 - 验证：openwiki 37 pass（新增 job-store.test.js 准入锁 3 用例）；app typecheck 通过
 - 至此 QA 审查 2 P1 + 3 P2 全部关闭
 
+README 更新（随 Linux 打包同步）：
+- OpenWiki 特性列表补充“Wiki 页面按会话记忆/自动恢复”（对应 dc515e4）
+- 桌面应用章节新增 NOTE：personal 分支 CI 每次 push 产出 Windows 安装包 + Linux AppImage，附产物下载入口；注明未签名、Linux 需 Node.js
+- 同步 README.md 与 README.zh.md
+
 三、本机验证
 ------------
 - bun test --cwd packages/openwiki：37 pass（含 stage-n / reclaim / ownership / worker-runtime / job-store 准入锁）

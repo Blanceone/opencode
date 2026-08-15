@@ -55,6 +55,7 @@ OpenCode here embeds **OpenWiki**, a code-mode documentation agent that generate
 - The wiki follows OpenCode's current model selection; document language is fixed to `zh-CN`
 - Secrets stay in the parent process (job-scoped loopback gateway); the wiki worker child always runs under Node.js
 - Consent flow when foreign or conflicting `.wiki` content is detected
+- Wiki pages are remembered per session: switching away and back to a session restores its wiki page automatically
 
 ---
 
@@ -96,6 +97,9 @@ brew install --cask opencode-desktop
 # Windows (Scoop)
 scoop bucket add extras; scoop install extras/opencode-desktop
 ```
+
+> [!NOTE]
+> The `personal` branch of this fork builds desktop installers on every push via GitHub Actions: a Windows installer (`opencode-desktop-win-x64`) and a Linux AppImage (`opencode-desktop-linux-x64`). Download them from the [build-desktop workflow artifacts](https://github.com/Blanceone/opencode/actions/workflows/build-desktop.yml). These builds are unsigned; the Linux AppImage requires Node.js on the target machine for the OpenWiki worker.
 
 #### Installation Directory
 

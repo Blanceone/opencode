@@ -55,6 +55,7 @@
 - Wiki 跟随 OpenCode 当前选择的模型；文档语言固定为 `zh-CN`
 - 密钥留在父进程（任务级 loopback gateway），Wiki worker 子进程始终运行于 Node.js
 - 检测到外来或冲突的 `.wiki` 内容时提供显式授权流程
+- Wiki 页面按会话记忆：切走再切回会话时自动恢复该会话的 Wiki 页面
 
 ---
 
@@ -96,6 +97,9 @@ brew install --cask opencode-desktop
 # Windows (Scoop)
 scoop bucket add extras; scoop install extras/opencode-desktop
 ```
+
+> [!NOTE]
+> 本 fork 的 `personal` 分支通过 GitHub Actions 在每次 push 时构建桌面安装包：Windows 安装包（`opencode-desktop-win-x64`）与 Linux AppImage（`opencode-desktop-linux-x64`），可从 [build-desktop 工作流产物页](https://github.com/Blanceone/opencode/actions/workflows/build-desktop.yml) 下载。这些构建未做代码签名；Linux AppImage 需要目标机安装 Node.js 以运行 OpenWiki worker。
 
 #### 安装目录
 
