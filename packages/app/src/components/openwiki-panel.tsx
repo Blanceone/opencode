@@ -171,6 +171,35 @@ export const OpenWikiPanel: Component = () => {
   const [references, setReferences] = createSignal<ReferenceSourceFile[]>([])
   const [draft, setDraft] = createSignal<FormatDraft | null>(null)
   let referenceInput: HTMLInputElement | undefined
+  const REFERENCE_EXTENSIONS = ["md", "doc", "docx"]
+
+  // Desktop: use the platform's native attachment picker (IPC-based Electron
+  // dialog) which reliably reads file content in the sandboxed renderer. HTML
+  // <input type="file"> can silently fail under Electron's sandbox.
+  const pickReferenceFiles = async () => {
+    if (platform.openAttachmentPickerDialog) {
+      const files: File[] = []
+      try {
+        await platform.openAttachmentPickerDialog(
+          {
+            multiple: true,
+            extensions: REFERENCE_EXTENSIONS,
+            title: language.t("dialog.openwiki.references.import"),
+          },
+          async (file: File) => {
+            files.push(file)
+          },
+        )
+      } catch (e) {
+        setError(formatCaughtError(e))
+        return
+      }
+      if (files.length > 0) await importReferenceFiles(files)
+      return
+    }
+    referenceInput?.click()
+  }
+
   const [splitRoot, setSplitRoot] = createSignal<HTMLDivElement>()
   const [splitWidth, setSplitWidth] = createSignal(0)
   const desktopSplit = createMediaQuery("(min-width: 1024px)")
@@ -1220,7 +1249,7 @@ export const OpenWikiPanel: Component = () => {
                         size="small"
                         variant="secondary"
                         disabled={busy() || !!status()?.consentRequired}
-                        onClick={() => referenceInput?.click()}
+                        onClick={() => void pickReferenceFiles()}
                       >
                         {language.t("dialog.openwiki.references.import")}
                       </Button>
