@@ -390,13 +390,19 @@ function SessionWikiOverlay(props: {
 
   return (
     <div class="absolute inset-0 z-50 flex flex-col">
-      <Suspense fallback={null}>
-        <LocalProvider>
-          <FileProvider>
-            <WikiPage onBack={() => void handleBack()} />
-          </FileProvider>
-        </LocalProvider>
-      </Suspense>
+      <Show when={props.directory()}>
+        {(dir) => (
+          <SDKProvider directory={dir}>
+            <Suspense fallback={null}>
+              <LocalProvider>
+                <FileProvider>
+                  <WikiPage onBack={() => void handleBack()} />
+                </FileProvider>
+              </LocalProvider>
+            </Suspense>
+          </SDKProvider>
+        )}
+      </Show>
     </div>
   )
 }
