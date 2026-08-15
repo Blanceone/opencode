@@ -85,3 +85,49 @@ jobs:
           path: packages/desktop/dist/win-unpacked
           if-no-files-found: error
           retention-days: 14
+
+  build-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 1
+
+      - uses: ./.github/actions/setup-bun
+
+      - name: Prepare OpenWiki bundle from npm
+        run: |
+          mkdir -p depends/openwiki-bundle/0.3.1
+          npm install --omit=dev --prefix depends/openwiki-bundle/0.3.1 openwiki@0.3.1
+          test -f depends/openwiki-bundle/0.3.1/node_modules/openwiki/dist/agent/index.js
+
+      - name: Build desktop
+        env:
+          OPENCODE_CHANNEL: prod
+          OPENCODE_PRODUCT_NAME: OpenCode
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          MODELS_DEV_API_JSON: ${{ github.workspace }}/packages/opencode/test/tool/fixtures/models-api.json
+        run: bun run --cwd packages/desktop build
+
+      - name: Package Linux installer
+        env:
+          OPENCODE_CHANNEL: prod
+          OPENCODE_PRODUCT_NAME: OpenCode
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+          MODELS_DEV_API_JSON: ${{ github.workspace }}/packages/opencode/test/tool/fixtures/models-api.json
+        run: cd packages/desktop && bunx electron-builder --linux AppImage --config electron-builder.config.ts
+
+      - name: Verify OpenWiki resources
+        run: |
+          test -f packages/desktop/dist/linux-unpacked/resources/openwiki/worker.mjs
+          test -f packages/desktop/dist/linux-unpacked/resources/openwiki/dist/agent/index.js
+          test -f packages/desktop/dist/linux-unpacked/resources/openwiki/vendor_modules/@langchain/openai/package.json
+          test -f packages/desktop/dist/opencode-desktop-linux-x64.AppImage
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: opencode-desktop-linux-x64
+          path: packages/desktop/dist/opencode-desktop-linux-x64.AppImage
+          if-no-files-found: error
+          retention-days: 30
