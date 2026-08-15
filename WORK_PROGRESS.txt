@@ -1,6 +1,6 @@
 OpenCode 本机集成 — 工作进展与后续事项
 ============================================
-日期：2026-08-13（Wiki 恢复 + 文件导入修复 6ed118e；oc-dist 待再次重打）
+日期：2026-08-13（Wiki 覆盖层重构 3a15f35；oc-dist 待再次重打）
 分支：personal（基于 origin/dev 浅克隆）
 远程：origin = https://github.com/Blanceone/opencode.git（同步用 origin/dev；本线推 origin/personal）
 本机约束：
@@ -84,6 +84,14 @@ QA 审查 P2 遗留全部关闭：
 【提交 6ed118e】fix(app): wiki session restore timing and desktop file import
 - SessionWikiRedirect：原 memo+Show+Navigate 模式在 directory 异步到达时会错过重定向（memo 首次返回 undefined，Show fallback 已渲染子组件，后续 Navigate 被跳过）；改用 createEffect + navigate() 命令式调用，确保所有响应式依赖就绪后可靠触发跳转
 - OpenWikiPanel 导入文件：桌面端改用 platform.openAttachmentPickerDialog（IPC Electron 原生对话框），解决 sandbox 渲染器中 HTML <input type="file"> 静默失效问题；Web 端保留 input fallback
+
+【提交 3a15f35】fix(app): wiki as persistent overlay instead of route-based page
+- 根本问题：wiki 与 session 在不同路由（/:dir/wiki vs /server/:key/session/:id），切换会话时 wiki 页面卸载，路由重定向有时序缺陷
+- 方案重构：wiki 改为会话页面内的覆盖层（SessionWikiOverlay），渲染在 TargetSessionRouteContent 中，绝对定位覆盖会话内容
+- Wiki 按钮（session-header / 命令面板 / prompt-workspace-selector）在新布局下只设置 wiki-open 标志，不导航到 /:dir/wiki；覆盖层响应式显隐
+- /:dir/wiki 路由在新布局下重定向回会话页面
+- 返回按钮：检查 OpenWiki status API 判断是否有活跃任务（queued/preparing/mapping-model/running/writing），有则 window.confirm 二次确认，确认后 cancel API 再关闭
+- WikiPage 组件增加 onBack 可选 prop，覆盖层传入自定义返回处理；旧布局行为不变
 
 README 更新（随 Linux 打包同步）：
 - OpenWiki 特性列表补充“Wiki 页面按会话记忆/自动恢复”（对应 dc515e4）
