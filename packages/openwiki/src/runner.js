@@ -6,6 +6,7 @@ import { createWikiBind, removeWikiBind } from './bind.js';
 import { buildFormatUserMessage, ensureFormatSeeded, readFormatBundle } from './format.js';
 import { OPENWIKI_DOCUMENT_LANGUAGE } from './language.js';
 import {
+  acquireJobAdmission,
   createJob,
   getChild,
   getJob,
@@ -138,63 +139,63 @@ export const applyConsentIfNeeded = async (projectDirectory, options = {}) => {
  */
 export const startOpenWikiJob = async (input) => {
   const directory = path.resolve(input.directory);
-  if (isJobActive(directory)) {
-    throw Object.assign(new Error('An OpenWiki job is already running for this project'), {
-      statusCode: 409,
-      code: 'job-in-progress',
+  // The admission gate stays held across every await below so a concurrent
+  // request cannot slip past the active-job check before createJob() lands.
+  const releaseAdmission = acquireJobAdmission(directory);
+  try {
+    await applyConsentIfNeeded(directory, {
+      consent: input.consent,
+      consentAction: input.consentAction,
     });
-  }
 
-  await applyConsentIfNeeded(directory, {
-    consent: input.consent,
-    consentAction: input.consentAction,
-  });
-
-  // Follow OpenCode's current model (UI selection / model.json / config).
-  const model = resolveOpenCodeCurrentModel({
-    directory,
-    model: input.model,
-    openWikiModelOverride: input.openWikiModelOverride,
-  });
-  if (!model) {
-    throw Object.assign(new Error('No OpenCode model selected'), {
-      statusCode: 400,
-      code: 'model-required',
+    // Follow OpenCode's current model (UI selection / model.json / config).
+    const model = resolveOpenCodeCurrentModel({
+      directory,
+      model: input.model,
+      openWikiModelOverride: input.openWikiModelOverride,
     });
-  }
+    if (!model) {
+      throw Object.assign(new Error('No OpenCode model selected'), {
+        statusCode: 400,
+        code: 'model-required',
+      });
+    }
 
-  const classification = classifyWikiOwnership(directory);
-  if (input.command === 'init' && classification.ownership === 'opencode-managed' && classification.wikiExists) {
-    // Allow regenerate with explicit init; UI must confirm. No hard block here if consented/managed.
-  }
+    const classification = classifyWikiOwnership(directory);
+    if (input.command === 'init' && classification.ownership === 'opencode-managed' && classification.wikiExists) {
+      // Allow regenerate with explicit init; UI must confirm. No hard block here if consented/managed.
+    }
 
-  if (input.command === 'update' && classification.ownership === 'absent') {
-    throw Object.assign(new Error('No wiki exists yet. Generate first.'), {
-      statusCode: 400,
-      code: 'wiki-root-invalid',
+    if (input.command === 'update' && classification.ownership === 'absent') {
+      throw Object.assign(new Error('No wiki exists yet. Generate first.'), {
+        statusCode: 400,
+        code: 'wiki-root-invalid',
+      });
+    }
+
+    await ensureFormatSeeded(directory);
+    const formatBundle = await readFormatBundle(directory);
+    const userMessage = buildFormatUserMessage(formatBundle);
+
+    createJob({
+      directory,
+      command: input.command,
+      model,
+      stage: 'preparing',
     });
+
+    // Fire and forget; HTTP returns the job immediately.
+    void runJob({
+      directory,
+      command: input.command,
+      model,
+      // Document language is product-locked; ignore any client/settings override.
+      language: OPENWIKI_DOCUMENT_LANGUAGE,
+      userMessage,
+    });
+  } finally {
+    releaseAdmission();
   }
-
-  await ensureFormatSeeded(directory);
-  const formatBundle = await readFormatBundle(directory);
-  const userMessage = buildFormatUserMessage(formatBundle);
-
-  createJob({
-    directory,
-    command: input.command,
-    model,
-    stage: 'preparing',
-  });
-
-  // Fire and forget; HTTP returns the job immediately.
-  void runJob({
-    directory,
-    command: input.command,
-    model,
-    // Document language is product-locked; ignore any client/settings override.
-    language: OPENWIKI_DOCUMENT_LANGUAGE,
-    userMessage,
-  });
 
   return getJob(directory);
 };

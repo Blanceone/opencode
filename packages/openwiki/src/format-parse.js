@@ -12,7 +12,7 @@ import { assertOpenWikiModelGatewayReady } from './model-bridge.js';
 import { resolveOpenCodeCurrentModel } from './resolve-current-model.js';
 import { resolveLlmUpstreamAsync } from './llm-upstream.js';
 import { completeChatOnce } from './llm-chat.js';
-import { createJob, getJob, isJobActive, updateJob } from './job-store.js';
+import { acquireJobAdmission, createJob, getJob, isJobActive, updateJob } from './job-store.js';
 import { classifyWikiOwnership } from './ownership.js';
 
 const DRAFT_MARKER_START = '<<<OPENCODE_INSTRUCTIONS>>>';
@@ -215,99 +215,98 @@ const buildMergePrompt = (current, draft) => [
  */
 export const startFormatParseJob = async (input) => {
   const directory = input.directory;
-  if (isJobActive(directory)) {
-    throw Object.assign(new Error('An OpenWiki job is already running for this project'), {
-      statusCode: 409,
-      code: 'job-in-progress',
-      job: getJob(directory),
+  // Hold the admission gate until createJob() lands so concurrent parses
+  // cannot both pass the active-job check during the awaits below.
+  const releaseAdmission = acquireJobAdmission(directory);
+  try {
+    const model = resolveOpenCodeCurrentModel({
+      directory,
+      model: input.model,
+      openWikiModelOverride: input.openWikiModelOverride,
+      allowFallback: false,
     });
-  }
-
-  const model = resolveOpenCodeCurrentModel({
-    directory,
-    model: input.model,
-    openWikiModelOverride: input.openWikiModelOverride,
-    allowFallback: false,
-  });
-  if (!model) {
-    throw Object.assign(new Error('Model is required'), {
-      statusCode: 400,
-      code: 'model-required',
-    });
-  }
-
-  const documents = await readReferenceSourceTexts(directory);
-  if (documents.length === 0) {
-    throw Object.assign(new Error('Import at least one reference document before parsing'), {
-      statusCode: 400,
-      code: 'reference-empty',
-    });
-  }
-
-  await assertOpenWikiModelGatewayReady({ directory, model });
-  const current = await readFormatBundle(directory);
-  const job = createJob({
-    directory,
-    command: 'parse-format',
-    model,
-    stage: 'queued',
-    detail: 'Parsing reference documents',
-  });
-
-  void (async () => {
-    try {
-      updateJob(directory, { stage: 'mapping-model', detail: 'Resolving model gateway' });
-      const upstream = await resolveLlmUpstreamAsync({ directory, model });
-      updateJob(directory, { stage: 'running', detail: 'Generating format draft', mappedProvider: 'openai-compatible' });
-      if (getJob(directory)?.cancelRequested) {
-        updateJob(directory, { stage: 'cancelled', detail: 'Cancelled' });
-        return;
-      }
-      const { text } = await completeChatOnce({
-        upstream,
-        messages: [{ role: 'user', content: buildParsePrompt(documents, current) }],
-      });
-      if (getJob(directory)?.cancelRequested || getJob(directory)?.stage === 'cancelled') {
-        updateJob(directory, { stage: 'cancelled', detail: 'Cancelled' });
-        return;
-      }
-      const parsed = parseDraftMarkers(text);
-      if (!parsed) {
-        throw Object.assign(new Error('Model response did not include INSTRUCTIONS/FORMAT markers'), {
-          statusCode: 502,
-          code: 'format-draft-parse-failed',
-        });
-      }
-      updateJob(directory, { stage: 'writing', detail: 'Saving format draft' });
-      const warnings = documents
-        .filter((doc) => doc.warning)
-        .map((doc) => `${doc.name}: ${doc.warning}`);
-      await writeFormatDraft(directory, {
-        instructions: parsed.instructions,
-        format: parsed.format,
-        model,
-        sourceFiles: documents.map((doc) => doc.name),
-        warnings,
-      });
-      if (getJob(directory)?.cancelRequested || getJob(directory)?.stage === 'cancelled') {
-        updateJob(directory, { stage: 'cancelled', detail: 'Cancelled' });
-        return;
-      }
-      updateJob(directory, { stage: 'completed', detail: 'Format draft ready' });
-    } catch (error) {
-      updateJob(directory, {
-        stage: 'failed',
-        detail: error instanceof Error ? error.message : String(error),
-        error: {
-          code: typeof error?.code === 'string' ? error.code : 'format-parse-failed',
-          message: error instanceof Error ? error.message : String(error),
-          providerID: model.providerID,
-        },
+    if (!model) {
+      throw Object.assign(new Error('Model is required'), {
+        statusCode: 400,
+        code: 'model-required',
       });
     }
-  })();
 
-  return job;
+    const documents = await readReferenceSourceTexts(directory);
+    if (documents.length === 0) {
+      throw Object.assign(new Error('Import at least one reference document before parsing'), {
+        statusCode: 400,
+        code: 'reference-empty',
+      });
+    }
+
+    await assertOpenWikiModelGatewayReady({ directory, model });
+    const current = await readFormatBundle(directory);
+    const job = createJob({
+      directory,
+      command: 'parse-format',
+      model,
+      stage: 'queued',
+      detail: 'Parsing reference documents',
+    });
+
+    void (async () => {
+      try {
+        updateJob(directory, { stage: 'mapping-model', detail: 'Resolving model gateway' });
+        const upstream = await resolveLlmUpstreamAsync({ directory, model });
+        updateJob(directory, { stage: 'running', detail: 'Generating format draft', mappedProvider: 'openai-compatible' });
+        if (getJob(directory)?.cancelRequested) {
+          updateJob(directory, { stage: 'cancelled', detail: 'Cancelled' });
+          return;
+        }
+        const { text } = await completeChatOnce({
+          upstream,
+          messages: [{ role: 'user', content: buildParsePrompt(documents, current) }],
+        });
+        if (getJob(directory)?.cancelRequested || getJob(directory)?.stage === 'cancelled') {
+          updateJob(directory, { stage: 'cancelled', detail: 'Cancelled' });
+          return;
+        }
+        const parsed = parseDraftMarkers(text);
+        if (!parsed) {
+          throw Object.assign(new Error('Model response did not include INSTRUCTIONS/FORMAT markers'), {
+            statusCode: 502,
+            code: 'format-draft-parse-failed',
+          });
+        }
+        updateJob(directory, { stage: 'writing', detail: 'Saving format draft' });
+        const warnings = documents
+          .filter((doc) => doc.warning)
+          .map((doc) => `${doc.name}: ${doc.warning}`);
+        await writeFormatDraft(directory, {
+          instructions: parsed.instructions,
+          format: parsed.format,
+          model,
+          sourceFiles: documents.map((doc) => doc.name),
+          warnings,
+        });
+        if (getJob(directory)?.cancelRequested || getJob(directory)?.stage === 'cancelled') {
+          updateJob(directory, { stage: 'cancelled', detail: 'Cancelled' });
+          return;
+        }
+        updateJob(directory, { stage: 'completed', detail: 'Format draft ready' });
+      } catch (error) {
+        updateJob(directory, {
+          stage: 'failed',
+          detail: error instanceof Error ? error.message : String(error),
+          error: {
+            code: typeof error?.code === 'string' ? error.code : 'format-parse-failed',
+            message: error instanceof Error ? error.message : String(error),
+            providerID: model.providerID,
+          },
+        });
+      }
+    })();
+
+    return job;
+  } finally {
+    releaseAdmission();
+  }
 };
 
 /**

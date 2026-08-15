@@ -503,7 +503,13 @@ export const OpenWikiPanel: Component = () => {
     return id
   }
 
+  // Single-flight guard: the poll interval can fire while requests are still
+  // in flight; overlapping refreshes would interleave and let a stale response
+  // overwrite newer state.
+  let refreshInFlight = false
   const refresh = async () => {
+    if (refreshInFlight) return
+    refreshInFlight = true
     try {
       const selected = modelRef()
       const location = openWikiLocation(directory())
@@ -561,6 +567,8 @@ export const OpenWikiPanel: Component = () => {
         return
       }
       setPollDelayMs((ms) => Math.min(ms * 2, POLL_BACKOFF_MAX_MS))
+    } finally {
+      refreshInFlight = false
     }
   }
 

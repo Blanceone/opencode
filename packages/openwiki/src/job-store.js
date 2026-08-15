@@ -116,3 +116,32 @@ export const isJobActive = (directory) => {
   if (!job) return false;
   return !['completed', 'failed', 'cancelled'].includes(job.stage);
 };
+
+/**
+ * Admission gate closing the TOCTOU window between isJobActive() and
+ * createJob(): concurrent callers await (consent, format bundle, gateway
+ * checks) before the job row exists, so two requests could both pass the
+ * active check and double-spawn. Holders must release in a finally block;
+ * once createJob() succeeds the active job itself blocks further admits.
+ * @type {Set<string>}
+ */
+const admittingDirectories = new Set();
+
+/**
+ * @param {string} directory
+ * @returns {() => void} release
+ */
+export const acquireJobAdmission = (directory) => {
+  const key = jobKey(directory);
+  if (isJobActive(directory) || admittingDirectories.has(key)) {
+    throw Object.assign(new Error('An OpenWiki job is already running for this project'), {
+      statusCode: 409,
+      code: 'job-in-progress',
+      job: jobsByDirectory.get(key) || null,
+    });
+  }
+  admittingDirectories.add(key);
+  return () => {
+    admittingDirectories.delete(key);
+  };
+};

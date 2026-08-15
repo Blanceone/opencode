@@ -3,7 +3,6 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-const DEFAULT_BUILDER_TOOLS = process.env.OPENCODE_BUILDER_TOOLS || 'D:\\work\\ai\\builder_tools';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 
 const looksLikeBun = (execPath) => {
@@ -22,7 +21,12 @@ export const resolveOpenWikiNodeBinary = (env = process.env) => {
     if (fs.existsSync(forced)) return forced;
   }
 
-  const toolsRoot = env.OPENCODE_BUILDER_TOOLS || DEFAULT_BUILDER_TOOLS;
+  // Builder-toolchain probing is opt-in via OPENCODE_BUILDER_TOOLS; no
+  // machine-specific default may leak into shipped builds.
+  const toolsRoot =
+    typeof env.OPENCODE_BUILDER_TOOLS === 'string' && env.OPENCODE_BUILDER_TOOLS
+      ? path.resolve(env.OPENCODE_BUILDER_TOOLS)
+      : null;
   const packageRoot =
     typeof env.OPENWIKI_PACKAGE_ROOT === 'string' && env.OPENWIKI_PACKAGE_ROOT
       ? path.resolve(env.OPENWIKI_PACKAGE_ROOT)
@@ -38,11 +42,11 @@ export const resolveOpenWikiNodeBinary = (env = process.env) => {
     packageRoot && path.join(packageRoot, 'node', process.platform === 'win32' ? 'node.exe' : 'node'),
     packageRoot && path.join(packageRoot, process.platform === 'win32' ? 'node.exe' : 'node'),
     resourcesPath && path.join(resourcesPath, 'node', process.platform === 'win32' ? 'node.exe' : 'node'),
-    path.join(toolsRoot, 'nodejs', 'node.exe'),
-    path.join(toolsRoot, 'node', 'node.exe'),
-    path.join(toolsRoot, 'nodejs', 'bin', 'node'),
-    path.join(toolsRoot, 'node', 'bin', 'node'),
-    path.join(toolsRoot, 'nodejs', 'bin', 'node.exe'),
+    toolsRoot && path.join(toolsRoot, 'nodejs', 'node.exe'),
+    toolsRoot && path.join(toolsRoot, 'node', 'node.exe'),
+    toolsRoot && path.join(toolsRoot, 'nodejs', 'bin', 'node'),
+    toolsRoot && path.join(toolsRoot, 'node', 'bin', 'node'),
+    toolsRoot && path.join(toolsRoot, 'nodejs', 'bin', 'node.exe'),
   ].filter(Boolean);
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) return candidate;
