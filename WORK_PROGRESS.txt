@@ -115,6 +115,7 @@ QA 审查 P2 遗留全部关闭：
 
 仍开放：
   - Stage N4 安装包手测（导入 / parse-merge / 导出 / worker+Node；Word 当前浏览器下载）
+  - 卡巴斯基 PDM 误报：旧构建在目标机被报 PDM:Trojan.Win32.Generic（SHA256 0128F399…，非当前产物 66A9BE6C…）；行为启发式非特征匹配，根因是未签名 + NSIS/Electron 释放+子进程行为；对策：手测加排除项、OpenTip 提交误报复核、根治靠 CSC 签名
   - 多数 locale 仍英文；TUI 部分硬编码 EN
   - 付费模型 gateway E2E；CSC 签名；可选 job 落盘 .wiki
   - App vendored client tarball 仍可升级（当前走 openwiki/http-client + fallback）
