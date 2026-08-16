@@ -9,6 +9,40 @@ OpenCode 本机集成 — 工作进展与后续事项
   - OpenWiki worker 必须用 Node（非 Bun）：OPENWIKI_NODE_BINARY 或 PATH 上的 node
     用户安装包不得依赖 ELECTRON_RUN_AS_NODE 跑 better-sqlite3（ABI 易挂）
 
+零、交接说明（2026-08-16，最新状态）
+----------------------------------
+【我们在干什么】
+把 OpenChamber 的 OpenWiki（代码库文档生成，产物 <项目>/.wiki/）集成进 OpenCode 桌面/Web 应用。
+当前最新里程碑是【91ac758】Wiki 独立标签页重构：
+  - 此前 wiki 做在会话页内（覆盖层方案，3a15f35 等），用户不满意，已彻底废弃
+  - 现在 Wiki 是与会话平级的第三种标签页（WikiTab：server + directory），入口仅三个：
+    ① 主页搜索栏下方「Wiki」按钮（与「新建会话」垂直堆叠）② 顶部标签栏 ③ 命令面板 /wiki
+  - 会话页内所有 wiki 入口已移除；模型选择与会话同源（ModelSelectorPopoverV2）
+  - 已验证：dev 浏览器 8 项实测全通过、37 包 typecheck 全绿、desktop renderer 构建产物正确
+  - 已推送 origin/personal（91ac758 功能 + 18e4db0 文档）
+
+【如何做——日常工作流】
+1) 后端 + 前端开发环境：
+   - 后端：cd packages/opencode && bun dev serve --hostname localhost --port 4096
+   - 前端：cd packages/app && bun dev  →  http://localhost:3000
+   - 关闭服务：按端口杀进程（3000=vite，4096=opencode serve）
+2) 类型检查：cd packages/app && bun run typecheck（提交时 pre-push 钩子会跑全仓 turbo typecheck）
+3) desktop 构建验证：cd packages/desktop && bunx electron-vite build
+   （完整 bun run build 的 prebuild 需联网拉 models.dev/CLI，无外网时直接跑 electron-vite build 即可）
+   产物抽查：out/renderer/assets/main-*.js 应含 addWikiTab；wiki-*.js 应含 openwikis API
+4) OpenWiki 功能手测：后端起好后，主页点「Wiki」按钮 → OpenWiki 面板；
+   也可 CLI：bun run --cwd packages/openwiki openwiki status --dir <项目>
+5) 提交规范：功能代码与文档（WORK_PROGRESS.txt）分开两个提交；推送 origin/personal
+
+【下一步工作计划】（按优先级）
+1) oc-dist 重打 + 安装包手测（N4 遗留）：当前 depends/oc-dist 停在 2026-08-13，不含本次重构；
+   需重打并手测：Wiki 独立标签流程、导入/parse-merge/导出 Word、worker+Node 运行
+2) README 文案修正：README.md / README.zh.md 中「Wiki 页面按会话记忆/自动恢复」描述已过时
+   （现为独立标签页，随标签持久化），需同步更新
+3) 仓库根目录测试截图清理：01-home-buttons.png、02-wiki-tab.png 等为本次浏览器实测产物，未入库，可删
+4) 与 origin/dev 同步（rebase/merge personal）；PR 前整理提交
+5) 长期项：付费模型 gateway E2E、CSC 签名、安装包内置 Node、桌面端 DOCX 导出路径
+
 一、产品目标（已确认）
 --------------------
 - 将 OpenChamber 的 OpenWiki（code-mode，产物在 <project>/.wiki/）嵌入 OpenCode
