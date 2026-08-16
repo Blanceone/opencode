@@ -93,6 +93,15 @@ QA 审查 P2 遗留全部关闭：
 - 返回按钮：检查 OpenWiki status API 判断是否有活跃任务（queued/preparing/mapping-model/running/writing），有则 window.confirm 二次确认，确认后 cancel API 再关闭
 - WikiPage 组件增加 onBack 可选 prop，覆盖层传入自定义返回处理；旧布局行为不变
 
+【提交 c9e6bec】fix(app): wrap wiki overlay with SDKProvider
+- 启动报错 "SDK context must be used within a context provider"：SessionWikiOverlay 内 LocalProvider 依赖 useSDK()，而会话路由只有 ServerSDKProvider（server 级），缺 SDKProvider（directory 级）
+- 覆盖层内补 SDKProvider，并用 Show 保护 directory 非空后再渲染
+
+【提交 9d9d5ac】fix(app): key wiki flag by root session id to match session tabs
+- 症状：新布局点击 Wiki 按钮 / /wiki 都无法进入 wiki 界面（覆盖层不显示）
+- 根因：会话标签页以根会话 ID 建键（ResolvedTargetSessionRoute 用 session.root.id 调 addSessionTab），而 wiki-open 标志用当前路由 session id 建键；子会话（sub-agent 任务）二者不同，tabs 清理 effect 把 wiki 标志当孤儿立即删除，wikiOpen() 恒为 false
+- 修复：useRememberWiki 与 TargetSessionRouteContent 均经 session lineage 解析根会话 ID（新增 wikiSessionID 助手）建键，标志不再被清理，覆盖层正常显示
+
 README 更新（随 Linux 打包同步）：
 - OpenWiki 特性列表补充“Wiki 页面按会话记忆/自动恢复”（对应 dc515e4）
 - 桌面应用章节新增 NOTE：personal 分支 CI 每次 push 产出 Windows 安装包 + Linux AppImage，附产物下载入口；注明未签名、Linux 需 Node.js
