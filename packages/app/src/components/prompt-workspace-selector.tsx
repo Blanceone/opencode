@@ -147,16 +147,20 @@ export function PromptWikiButton(props: { onDone?: () => void }) {
     if (!directory) return
     const serverKey = params.serverKey ? requireServerKey(params.serverKey) : undefined
     rememberWiki(params.id, serverKey)
-    if (!settings.general.newLayoutDesigns()) {
-      openWikiPage({
-        navigate,
-        directory,
-        from: location.pathname + location.search,
-        sessionID: params.id,
-        promoteSession: (dir, sessionID) => local.session.promote(dir, sessionID),
-        remember: () => rememberWiki(params.id, serverKey),
-      })
+    // The new layout shows the wiki as a session overlay, but without a session
+    // (new-session page) there is no overlay host, so open the standalone page.
+    if (params.id && settings.general.newLayoutDesigns()) {
+      props.onDone?.()
+      return
     }
+    openWikiPage({
+      navigate,
+      directory,
+      from: location.pathname + location.search,
+      sessionID: params.id,
+      promoteSession: (dir, sessionID) => local.session.promote(dir, sessionID),
+      remember: () => rememberWiki(params.id, serverKey),
+    })
     props.onDone?.()
   }
 

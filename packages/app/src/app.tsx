@@ -658,19 +658,20 @@ function Routes(props: { serverScoped?: JSX.Element }) {
               const [search] = useSearchParams<{ from?: string }>()
               const navigate = useNavigate()
               const tabs = useTabs()
-              createEffect(() => {
+              // Sessions keep the wiki open as an overlay, so a wiki URL that
+              // points back at a session returns there. Places without a session
+              // (new-session page, direct open) fall back to the standalone page.
+              const sessionFrom = createMemo(() => {
                 if (!isNewLayout) return
-                if (!tabs.ready()) return
                 const from = search.from
-                const m = from?.match(/^\/server\/([^/]+)\/session\/([^/?]+)/)
-                if (m) {
-                  navigate(from!, { replace: true })
-                  return
-                }
-                navigate("/", { replace: true })
+                return from?.match(/^\/server\/([^/]+)\/session\/([^/?]+)/) ? from : undefined
+              })
+              createEffect(() => {
+                const target = sessionFrom()
+                if (target && tabs.ready()) navigate(target, { replace: true })
               })
               return (
-                <Show when={!isNewLayout}>
+                <Show when={!sessionFrom()}>
                   <Suspense fallback={null}>
                     <WikiPage />
                   </Suspense>
