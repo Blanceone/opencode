@@ -2,6 +2,7 @@ import { base64Encode } from "@opencode-ai/core/util/encode"
 import { ServerConnection } from "@/context/server"
 import { useServer } from "@/context/server"
 import { useTabs } from "@/context/tabs"
+import { useServerSync } from "@/context/server-sync"
 import { decode64 } from "@/utils/base64"
 
 export function sessionHref(server: ServerConnection.Key, sessionID: string) {
@@ -42,10 +43,21 @@ export function openWikiPage(input: {
 export function useRememberWiki() {
   const server = useServer()
   const tabs = useTabs()
+  const serverSync = useServerSync()
   return (sessionID: string | undefined, serverKey?: ServerConnection.Key) => {
     if (!sessionID) return
-    tabs.setWiki({ type: "session", server: serverKey ?? server.key, sessionId: sessionID }, true)
+    tabs.setWiki(
+      { type: "session", server: serverKey ?? server.key, sessionId: wikiSessionID(serverSync().session.lineage.peek(sessionID), sessionID) },
+      true,
+    )
   }
+}
+
+// Session tabs are keyed by their root session (see ResolvedTargetSessionRoute),
+// so the wiki flag must use the root session id too; otherwise the tabs cleanup
+// effect treats the flag as orphaned and discards it immediately.
+export function wikiSessionID(lineage: { root: { id: string } } | undefined, sessionID: string) {
+  return lineage?.root.id ?? sessionID
 }
 export function requireServerKey(segment: string | undefined) {
   const key = decode64(segment)

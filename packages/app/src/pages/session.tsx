@@ -100,7 +100,7 @@ import { diffs as list } from "@/utils/diffs"
 import { Persist, persisted } from "@/utils/persist"
 import { extractPromptFromParts } from "@/utils/prompt"
 import { formatServerError, isLocalSessionNotFoundError, isSessionNotFoundError } from "@/utils/server-errors"
-import { legacySessionHref, requireServerKey, sessionHref } from "@/utils/session-route"
+import { legacySessionHref, requireServerKey, sessionHref, wikiSessionID } from "@/utils/session-route"
 import { authTokenFromCredentials } from "@/utils/server"
 import { SessionWikiRedirect } from "@/components/session-wiki-redirect"
 import { useUsageExceededDialogs } from "./session/usage-exceeded-dialogs"
@@ -168,8 +168,9 @@ export function TargetSessionRouteContent() {
   const serverSync = useServerSync()
   const tabs = useTabs()
   const directory = createMemo(() => serverSync().session.lineage.peek(params.id)?.session.directory)
+  const wikiSession = createMemo(() => wikiSessionID(serverSync().session.lineage.peek(params.id), params.id))
   const wikiOpen = createMemo(() =>
-    tabs.wikiOpen({ type: "session", server: requireServerKey(params.serverKey), sessionId: params.id }),
+    tabs.wikiOpen({ type: "session", server: requireServerKey(params.serverKey), sessionId: wikiSession() }),
   )
   return (
     // Settings must keep the target-server SDK, sync, and models context and remain registered
@@ -182,7 +183,7 @@ export function TargetSessionRouteContent() {
       <Show when={wikiOpen()}>
         <SessionWikiOverlay
           serverKey={requireServerKey(params.serverKey)}
-          sessionID={params.id}
+          sessionID={wikiSession()}
           directory={directory}
         />
       </Show>
