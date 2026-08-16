@@ -102,6 +102,12 @@ QA 审查 P2 遗留全部关闭：
 - 根因：会话标签页以根会话 ID 建键（ResolvedTargetSessionRoute 用 session.root.id 调 addSessionTab），而 wiki-open 标志用当前路由 session id 建键；子会话（sub-agent 任务）二者不同，tabs 清理 effect 把 wiki 标志当孤儿立即删除，wikiOpen() 恒为 false
 - 修复：useRememberWiki 与 TargetSessionRouteContent 均经 session lineage 解析根会话 ID（新增 wikiSessionID 助手）建键，标志不再被清理，覆盖层正常显示
 
+【提交 1e2140f】fix(app): resolve openwiki client from workspace package in vite
+- 症状：覆盖层能打开，但 Wiki 面板卡在“加载中”并报 Cannot read properties of undefined (reading 'status')，功能全部不可用（本地 dev 复现）
+- 根因：app 把 @opencode-ai/client 钉死为 vendored tarball（1.17.13，无 openwikis API）；openwiki 适配器经 @opencode-ai/openwiki/http-client 再导出 @opencode-ai/client，Vite 依赖优化按包名去重，把该导入重写为 app 预构建的 vendored 副本，OpenCode.make(...).openwikis 变 undefined
+- 修复：packages/app/vite.js 共享插件新增 enforce:pre 的 resolveId，当 importer 位于 packages/openwiki 时，把 @opencode-ai/client 定向解析为 openwiki 自身依赖树中的 workspace 生成 client（含 openwikis 端点）；app 自身的 vendored client 用途不受影响
+- 验证：dev 下浏览器实测面板完整渲染（status/format/presets 等 API 全 200）；生产 build 产物 wiki chunk 仍含 workspace client；typecheck 通过
+
 README 更新（随 Linux 打包同步）：
 - OpenWiki 特性列表补充“Wiki 页面按会话记忆/自动恢复”（对应 dc515e4）
 - 桌面应用章节新增 NOTE：personal 分支 CI 每次 push 产出 Windows 安装包 + Linux AppImage，附产物下载入口；注明未签名、Linux 需 Node.js
