@@ -1231,7 +1231,7 @@ export const dict = {
   "dialog.openwiki.description": "使用 OpenCode 当前选中的模型",
   "page.openwiki.title": "OpenWiki",
   "page.openwiki.description": "生成并管理项目 .wiki 知识库。使用 OpenCode 当前选中的模型。",
-  "page.openwiki.back": "返回会话",
+  "page.openwiki.back": "返回",
   "dialog.openwiki.backWithActiveJob": "Wiki 生成任务正在运行中，返回将终止该任务。确认继续？",
   "page.openwiki.status.title": "状态",
   "page.openwiki.actions.title": "操作",

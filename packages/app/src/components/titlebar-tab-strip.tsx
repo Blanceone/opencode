@@ -168,7 +168,7 @@ function SessionTabEntry(props: {
 }
 
 function DraftTabSlot(props: {
-  tab: Extract<Tab, { type: "draft" }>
+  tab: Extract<Tab, { type: "draft" | "wiki" }>
   id: string
   index: () => number
   active: () => boolean
@@ -225,7 +225,9 @@ export function TitlebarTabStrip(props: {
   let listRef!: HTMLDivElement
   let resizeFrame: number | undefined
   const [visibility, setVisibility] = createStore<Record<string, boolean>>({})
-  const visibleTabs = createMemo(() => props.tabs.filter((tab) => tab.type === "draft" || visibility[tabKey(tab)]))
+  const visibleTabs = createMemo(() =>
+    props.tabs.filter((tab) => tab.type === "draft" || tab.type === "wiki" || visibility[tabKey(tab)]),
+  )
   const visibleTabIds = () => visibleTabs().map(tabKey)
 
   command.register("titlebar-tab-cycle", () => [
@@ -370,7 +372,7 @@ export function TitlebarTabStrip(props: {
                     id={id}
                     index={visibleIndex}
                     active={() => props.currentTab() === tab}
-                    title={language.t("command.session.new")}
+                    title={tab.type === "wiki" ? language.t("session.new.wiki") : language.t("command.session.new")}
                     onNavigate={(element) => {
                       ref = element
                       props.onNavigate(tab, element)

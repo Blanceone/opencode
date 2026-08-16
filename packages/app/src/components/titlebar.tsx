@@ -218,6 +218,12 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
               if (route.type === "draft") {
                 return tabsStore.find((item) => item.type === "draft" && item.draftID === route.draftID)
               }
+              if (route.type === "wiki") {
+                return tabsStore.find(
+                  (item) =>
+                    item.type === "wiki" && item.server === (route.server ?? server.key) && item.directory === route.dir,
+                )
+              }
               if (route.type === "session") {
                 const main = tabsStore.find(
                   (item) =>
@@ -243,6 +249,11 @@ export function Titlebar(props: { update?: TitlebarUpdate; debugTools?: { visibl
               const tab = currentTab()
               if (tab) {
                 tabs.remember(tab)
+                return
+              }
+
+              if (route.type === "wiki") {
+                tabsStoreActions.addWikiTab({ server: route.server ?? server.key, directory: route.dir })
                 return
               }
 

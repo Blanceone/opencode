@@ -1156,7 +1156,7 @@ export const dict = {
   "dialog.openwiki.description": "Uses the model currently selected in OpenCode",
   "page.openwiki.title": "OpenWiki",
   "page.openwiki.description": "Generate and manage the project .wiki knowledge base. Uses the model currently selected in OpenCode.",
-  "page.openwiki.back": "Back to session",
+  "page.openwiki.back": "Back",
   "dialog.openwiki.backWithActiveJob": "A wiki generation job is currently running. Going back will cancel it. Continue?",
   "page.openwiki.status.title": "Status",
   "page.openwiki.actions.title": "Actions",

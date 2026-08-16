@@ -178,6 +178,14 @@ export function createHomeSessionsController(home: HomeController) {
       server: () => home.selection.value().server,
       canCreate: () => !!home.project.newSession(),
       create: home.project.openNewSession,
+      openWiki: () => {
+        const selection = home.selection.value()
+        const directory = selection.directory
+        if (!directory) return
+        void startTransition(() => {
+          tabs.select(tabs.addWikiTab({ server: selection.server, directory }))
+        })
+      },
       open: (session: Session, options?: OpenSessionOptions) => {
         const directoryKey = pathKey(session.directory)
         const project =

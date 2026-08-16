@@ -1,15 +1,13 @@
 import { For, Show } from "solid-js"
-import { useLocation, useNavigate, useParams } from "@solidjs/router"
+import { useLocation, useNavigate } from "@solidjs/router"
 import { MenuV2 } from "@opencode-ai/ui/v2/menu-v2"
 import { TooltipV2 } from "@opencode-ai/ui/v2/tooltip-v2"
 import { Icon } from "@opencode-ai/ui/icon"
 import { Icon as IconV2 } from "@opencode-ai/ui/v2/icon"
 import { getFilename } from "@opencode-ai/core/util/path"
 import { useLanguage } from "@/context/language"
-import { useLocal } from "@/context/local"
 import { useSDK } from "@/context/sdk"
-import { useSettings } from "@/context/settings"
-import { openWikiPage, requireServerKey, useRememberWiki } from "@/utils/session-route"
+import { wikiHref } from "@/utils/session-route"
 
 export function PromptWorkspaceSelector(props: {
   value: string
@@ -136,31 +134,12 @@ export function PromptWikiButton(props: { onDone?: () => void }) {
   const language = useLanguage()
   const navigate = useNavigate()
   const location = useLocation()
-  const params = useParams()
-  const local = useLocal()
   const sdk = useSDK()
-  const settings = useSettings()
-  const rememberWiki = useRememberWiki()
 
   const open = () => {
     const directory = sdk().directory
     if (!directory) return
-    const serverKey = params.serverKey ? requireServerKey(params.serverKey) : undefined
-    rememberWiki(params.id, serverKey)
-    // The new layout shows the wiki as a session overlay, but without a session
-    // (new-session page) there is no overlay host, so open the standalone page.
-    if (params.id && settings.general.newLayoutDesigns()) {
-      props.onDone?.()
-      return
-    }
-    openWikiPage({
-      navigate,
-      directory,
-      from: location.pathname + location.search,
-      sessionID: params.id,
-      promoteSession: (dir, sessionID) => local.session.promote(dir, sessionID),
-      remember: () => rememberWiki(params.id, serverKey),
-    })
+    navigate(wikiHref(directory, location.pathname + location.search))
     props.onDone?.()
   }
 

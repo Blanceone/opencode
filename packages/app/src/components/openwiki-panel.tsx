@@ -15,6 +15,7 @@ import { authTokenFromCredentials } from "@/utils/server"
 import { showToast } from "@/utils/toast"
 import { Persist, persisted } from "@/utils/persist"
 import { OpenWikiFileBrowser } from "@/components/openwiki-file-browser"
+import { ModelSelectorPopoverV2 } from "@/components/dialog-select-model"
 import {
   createOpenWikiClient,
   isOpenWikiApiMissing,
@@ -1011,9 +1012,18 @@ export const OpenWikiPanel: Component = () => {
               {(s) => (
                 <div class="flex flex-col gap-3">
                   <div class="flex flex-wrap items-center gap-2">
-                    <span class="rounded-full bg-background-stronger px-2.5 py-1 text-11-regular text-text-weak">
-                      {language.t("dialog.openwiki.model")}: {modelLabel()}
-                    </span>
+                    <ModelSelectorPopoverV2
+                      model={local.model}
+                      trigger={(triggerProps) => (
+                        <button
+                          {...triggerProps}
+                          type="button"
+                          class="rounded-full bg-background-stronger px-2.5 py-1 text-11-regular text-text-weak transition-colors hover:bg-background-stronger/70 focus-visible:outline-none"
+                        >
+                          {language.t("dialog.openwiki.model")}: {modelLabel()}
+                        </button>
+                      )}
+                    />
                     <span
                       class="rounded-full bg-background-stronger px-2.5 py-1 text-11-regular text-text-weak"
                       title={language.t("dialog.openwiki.exists.hint")}

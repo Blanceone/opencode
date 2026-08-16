@@ -5,7 +5,6 @@ import { createQuery, skipToken, useMutation, useQueryClient } from "@tanstack/s
 import {
   batch,
   ErrorBoundary,
-  lazy,
   onCleanup,
   Suspense,
   Show,
@@ -24,7 +23,7 @@ import { makeEventListener } from "@solid-primitives/event-listener"
 import { createMediaQuery } from "@solid-primitives/media"
 import { createResizeObserver } from "@solid-primitives/resize-observer"
 import { debounce } from "@solid-primitives/scheduled"
-import { useLocal, LocalProvider } from "@/context/local"
+import { useLocal } from "@/context/local"
 import { FileProvider, selectionFromLines, useFile, type FileSelection, type SelectedLineRange } from "@/context/file"
 import { createStore } from "solid-js/store"
 import type { SessionReviewLineComment } from "@opencode-ai/session-ui/session-review"
@@ -100,16 +99,10 @@ import { diffs as list } from "@/utils/diffs"
 import { Persist, persisted } from "@/utils/persist"
 import { extractPromptFromParts } from "@/utils/prompt"
 import { formatServerError, isLocalSessionNotFoundError, isSessionNotFoundError } from "@/utils/server-errors"
-import { legacySessionHref, requireServerKey, sessionHref, wikiSessionID } from "@/utils/session-route"
-import { authTokenFromCredentials } from "@/utils/server"
-import { SessionWikiRedirect } from "@/components/session-wiki-redirect"
+import { legacySessionHref, requireServerKey, sessionHref } from "@/utils/session-route"
 import { useUsageExceededDialogs } from "./session/usage-exceeded-dialogs"
 import { createSessionOwnership } from "./session/session-ownership"
 import { createSessionLineage } from "./session/session-lineage"
-
-const WikiPage = lazy(() => import("@/pages/wiki"))
-
-const WIKI_ACTIVE_STAGES = new Set(["queued", "preparing", "mapping-model", "running", "writing"])
 
 type FollowupItem = FollowupDraft & { id: string }
 type FollowupEdit = Pick<FollowupItem, "id" | "prompt" | "context">
@@ -166,12 +159,7 @@ export function SessionPage() {
 export function TargetSessionRouteContent() {
   const params = useParams<{ serverKey: string; id: string }>()
   const serverSync = useServerSync()
-  const tabs = useTabs()
   const directory = createMemo(() => serverSync().session.lineage.peek(params.id)?.session.directory)
-  const wikiSession = createMemo(() => wikiSessionID(serverSync().session.lineage.peek(params.id), params.id))
-  const wikiOpen = createMemo(() =>
-    tabs.wikiOpen({ type: "session", server: requireServerKey(params.serverKey), sessionId: wikiSession() }),
-  )
   return (
     // Settings must keep the target-server SDK, sync, and models context and remain registered
     // when session content falls back to the route error boundary.
@@ -180,13 +168,6 @@ export function TargetSessionRouteContent() {
       <SessionRouteErrorBoundary sessionID={params.id} serverKey={requireServerKey(params.serverKey)} padded>
         <ResolvedTargetSessionRoute />
       </SessionRouteErrorBoundary>
-      <Show when={wikiOpen()}>
-        <SessionWikiOverlay
-          serverKey={requireServerKey(params.serverKey)}
-          sessionID={wikiSession()}
-          directory={directory}
-        />
-      </Show>
     </TargetServerScopedProviders>
   )
 }
@@ -331,81 +312,6 @@ function MarkSessionNotificationsViewed(props: { sessionID?: () => string | unde
     notification.session.markViewed(sessionID)
   })
   return null
-}
-
-// Wiki overlay: renders WikiPage on top of the session content so the wiki
-// persists across session switches without relying on route-based redirects.
-// The back handler checks for an active wiki job and asks for confirmation.
-function SessionWikiOverlay(props: {
-  serverKey: ServerConnection.Key
-  sessionID: string
-  directory: () => string | undefined
-}) {
-  const tabs = useTabs()
-  const language = useLanguage()
-  const platform = usePlatform()
-  const serverSDK = useServerSDK()
-
-  const fetchOpenWiki = async <T,>(path: string, init?: RequestInit): Promise<T> => {
-    const dir = props.directory()
-    if (!dir) throw new Error("OpenWiki requires the current workspace directory")
-    const server = serverSDK().server.http
-    const headers: Record<string, string> = {
-      "content-type": "application/json",
-      "x-opencode-directory": encodeURIComponent(dir),
-    }
-    if (server.password) {
-      headers.Authorization = `Basic ${authTokenFromCredentials({
-        username: server.username,
-        password: server.password,
-      })}`
-    }
-    const fetchFn = platform.fetch ?? globalThis.fetch
-    const res = await fetchFn(new URL(path, server.url), {
-      ...init,
-      headers: { ...headers, ...(init?.headers as Record<string, string> | undefined) },
-    })
-    if (!res.ok) throw new Error(`OpenWiki API error: ${res.status}`)
-    return res.json() as Promise<T>
-  }
-
-  const handleBack = async () => {
-    const dir = props.directory()
-    if (dir) {
-      try {
-        const status = await fetchOpenWiki<{ job?: { stage?: string } }>("/api/openwiki/status")
-        const stage = status.job?.stage
-        if (stage && WIKI_ACTIVE_STAGES.has(stage)) {
-          const confirmed = window.confirm(
-            language.t("dialog.openwiki.backWithActiveJob"),
-          )
-          if (!confirmed) return
-          await fetchOpenWiki("/api/openwiki/cancel", { method: "POST", body: "{}" }).catch(() => {})
-        }
-      } catch {
-        // Status check failed — proceed with close.
-      }
-    }
-    tabs.setWiki({ type: "session", server: props.serverKey, sessionId: props.sessionID }, false)
-  }
-
-  return (
-    <div class="absolute inset-0 z-50 flex flex-col">
-      <Show when={props.directory()}>
-        {(dir) => (
-          <SDKProvider directory={dir}>
-            <Suspense fallback={null}>
-              <LocalProvider>
-                <FileProvider>
-                  <WikiPage onBack={() => void handleBack()} />
-                </FileProvider>
-              </LocalProvider>
-            </Suspense>
-          </SDKProvider>
-        )}
-      </Show>
-    </div>
-  )
 }
 
 function SessionProviders(props: ParentProps) {

@@ -52,6 +52,7 @@ export type HomeSessionsViewProps = {
   titleOpacity: (id: HomeSessionGroup["id"]) => number
   isOpenTab: (record: HomeSessionRecord) => boolean
   onCreateSession: () => void
+  onOpenWiki: () => void
   onOpenSession: (session: Session, options?: OpenSessionOptions) => void
   onArchiveSession: (session: Session) => Promise<void>
   onSetHoverTarget: (element: HTMLElement) => void
@@ -82,16 +83,26 @@ export function HomeSessionsView(props: HomeSessionsViewProps) {
         <HomeSessionSearch {...props} />
         <Suspense>
           <Show when={props.groups().length > 0 && props.canCreateSession()}>
-            <div class="pointer-events-none absolute right-0 top-[84px] z-20 flex lg:top-[108px]">
+            <div class="flex flex-col items-end gap-1 pt-3">
               <ButtonV2
                 data-action="home-new-session"
                 variant="ghost-muted"
                 size="normal"
                 icon="edit"
-                class="pointer-events-auto h-7 px-2 [font-weight:530]"
+                class="h-7 px-2 [font-weight:530]"
                 onClick={props.onCreateSession}
               >
                 {props.language.t("command.session.new")}
+              </ButtonV2>
+              <ButtonV2
+                data-action="home-open-wiki"
+                variant="ghost-muted"
+                size="normal"
+                icon="bullet-list"
+                class="h-7 px-2 [font-weight:530]"
+                onClick={props.onOpenWiki}
+              >
+                {props.language.t("session.new.wiki")}
               </ButtonV2>
             </div>
           </Show>

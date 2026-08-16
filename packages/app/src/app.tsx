@@ -63,11 +63,10 @@ import LegacyLayout from "@/pages/layout"
 import NewLayout from "@/pages/layout-new"
 import { ErrorPage } from "./pages/error"
 import { useCheckServerHealth } from "./utils/server-health"
-import { legacySessionHref, legacySessionServer, requireServerKey, sessionHref, wikiHref } from "./utils/session-route"
+import { legacySessionHref, legacySessionServer, requireServerKey, sessionHref } from "./utils/session-route"
 import { createSessionLineage } from "@/pages/session/session-lineage"
 
 import { SessionPage, SessionRouteErrorBoundary, TargetSessionRouteContent } from "@/pages/session"
-import { SessionWikiRedirect } from "@/components/session-wiki-redirect"
 import { NewHome } from "@/pages/home"
 import { LegacyHome } from "@/pages/home/legacy-home"
 
@@ -104,11 +103,9 @@ const SessionRoute = () => {
   })
 
   return (
-    <SessionWikiRedirect server={server.key} sessionID={params.id} directory={() => sdk().directory}>
-      <SessionRouteErrorBoundary sessionID={params.id}>
-        <SessionPage />
-      </SessionRouteErrorBoundary>
-    </SessionWikiRedirect>
+    <SessionRouteErrorBoundary sessionID={params.id}>
+      <SessionPage />
+    </SessionRouteErrorBoundary>
   )
 }
 
@@ -653,31 +650,11 @@ function Routes(props: { serverScoped?: JSX.Element }) {
           <Route path="/session/:id?" component={SessionRoute} />
           <Route
             path="/wiki"
-            component={() => {
-              const isNewLayout = settings.general.newLayoutDesigns()
-              const [search] = useSearchParams<{ from?: string }>()
-              const navigate = useNavigate()
-              const tabs = useTabs()
-              // Sessions keep the wiki open as an overlay, so a wiki URL that
-              // points back at a session returns there. Places without a session
-              // (new-session page, direct open) fall back to the standalone page.
-              const sessionFrom = createMemo(() => {
-                if (!isNewLayout) return
-                const from = search.from
-                return from?.match(/^\/server\/([^/]+)\/session\/([^/?]+)/) ? from : undefined
-              })
-              createEffect(() => {
-                const target = sessionFrom()
-                if (target && tabs.ready()) navigate(target, { replace: true })
-              })
-              return (
-                <Show when={!sessionFrom()}>
-                  <Suspense fallback={null}>
-                    <WikiPage />
-                  </Suspense>
-                </Show>
-              )
-            }}
+            component={() => (
+              <Suspense fallback={null}>
+                <WikiPage />
+              </Suspense>
+            )}
           />
         </Route>
       </Route>

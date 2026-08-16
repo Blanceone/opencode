@@ -25,6 +25,7 @@ export function HomeSessions(props: {
       titleOpacity={props.scroll.header.titleOpacity}
       isOpenTab={props.sessions.tab.isOpen}
       onCreateSession={props.sessions.session.create}
+      onOpenWiki={props.sessions.session.openWiki}
       onOpenSession={props.sessions.session.open}
       onArchiveSession={props.sessions.session.archive}
       onSetHoverTarget={props.scroll.viewport.setHoverTarget}

@@ -20,7 +20,7 @@ import { Message, Part, UserMessage } from "@opencode-ai/sdk/v2"
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { createSessionOwnership } from "./session-ownership"
 import { useLocal } from "@/context/local"
-import { openWikiPage, requireServerKey, useRememberWiki } from "@/utils/session-route"
+import { wikiHref } from "@/utils/session-route"
 
 export type SessionCommandContext = {
   navigateMessageByOffset: (offset: number) => void
@@ -50,7 +50,6 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   const terminal = useTerminal()
   const layout = useLayout()
   const local = useLocal()
-  const rememberWiki = useRememberWiki()
   const navigate = useNavigate()
   const location = useLocation()
   const { params, sessionKey, tabs, view } = useSessionLayout()
@@ -317,17 +316,7 @@ export const useSessionCommands = (actions: SessionCommandContext) => {
   const chooseWiki = () => {
     const directory = sdk().directory
     if (!directory) return
-    const serverKey = params.serverKey ? requireServerKey(params.serverKey) : undefined
-    rememberWiki(params.id, serverKey)
-    if (settings.general.newLayoutDesigns()) return
-    openWikiPage({
-      navigate,
-      directory,
-      from: location.pathname + location.search,
-      sessionID: params.id,
-      promoteSession: (dir, sessionID) => local.session.promote(dir, sessionID),
-      remember: () => rememberWiki(params.id, serverKey),
-    })
+    navigate(wikiHref(directory, location.pathname + location.search))
   }
 
   const toggleAutoAccept = () => {

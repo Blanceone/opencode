@@ -18,6 +18,9 @@ export function migrateTabs(value: unknown, fallback: ServerConnection.Key): Tab
     ) {
       return [{ type: tab.type, server, draftID: tab.draftID, directory: tab.directory, worktree: tab.worktree }]
     }
+    if (tab.type === "wiki" && typeof tab.directory === "string") {
+      return [{ type: tab.type, server, directory: tab.directory }]
+    }
     return []
   })
 }
