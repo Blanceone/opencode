@@ -108,7 +108,7 @@ QA 审查 P2 遗留全部关闭：
 - 修复：packages/app/vite.js 共享插件新增 enforce:pre 的 resolveId，当 importer 位于 packages/openwiki 时，把 @opencode-ai/client 定向解析为 openwiki 自身依赖树中的 workspace 生成 client（含 openwikis 端点）；app 自身的 vendored client 用途不受影响
 - 验证：dev 下浏览器实测面板完整渲染（status/format/presets 等 API 全 200）；生产 build 产物 wiki chunk 仍含 workspace client；typecheck 通过
 
-【提交 待提交】fix(app): open wiki entry points from the new-session page in new layout
+【提交 c5da511】fix(app): open wiki entry points from the new-session page in new layout
 - 症状：desktop CI 产物（新布局）在初始页/新会话页点击 Wiki 按钮无反应；使用 /wiki 会跳回初始页
 - 根因：① 新布局的 /:dir/wiki 路由在 from 非会话 URL 时执行 navigate("/")，直接弹回首页（新会话页注册的 /wiki 命令正是导航到该路由）；② composer 的 PromptWikiButton 在新布局只设置会话级 wiki 标志，而新会话页无会话 ID，标志设置无效，什么都不发生
 - 修复：app.tsx /:dir/wiki 路由——新布局下 from 匹配会话则回到该会话（覆盖层恢复），否则渲染独立 WikiPage（不再跳首页）；PromptWikiButton——有会话 ID 时保持覆盖层行为，无会话时导航打开独立 wiki 页
