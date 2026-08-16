@@ -1,6 +1,6 @@
 OpenCode 本机集成 — 工作进展与后续事项
 ============================================
-日期：2026-08-13（Wiki 覆盖层重构 3a15f35；oc-dist 待再次重打）
+日期：2026-08-16（Wiki 独立标签页重构 91ac758；oc-dist 待再次重打）
 分支：personal（基于 origin/dev 浅克隆）
 远程：origin = https://github.com/Blanceone/opencode.git（同步用 origin/dev；本线推 origin/personal）
 本机约束：
@@ -114,6 +114,14 @@ QA 审查 P2 遗留全部关闭：
 - 修复：app.tsx /:dir/wiki 路由——新布局下 from 匹配会话则回到该会话（覆盖层恢复），否则渲染独立 WikiPage（不再跳首页）；PromptWikiButton——有会话 ID 时保持覆盖层行为，无会话时导航打开独立 wiki 页
 - 验证：dev 浏览器实测初始页 /wiki 命令与 composer Wiki 按钮均打开 OpenWiki 页、返回正常；会话内覆盖层回归通过；console 无错误
 
+【提交 91ac758】feat(app): make wiki a standalone top-level tab
+- 架构转向：放弃会话内覆盖层方案，Wiki 升级为与会话平级的第三种标签页类型（WikiTab：server + directory），入口仅三个——主页按钮、顶部标签、/wiki 命令；会话页 wiki 入口（覆盖层/头部按钮/重定向）全部移除
+- tabs.tsx：新增 WikiTab/addWikiTab/tabHref wiki 分支；删除旧 wiki 标志机制（tabs.wiki store / removeWiki / setWiki / wikiOpen）；tab-migration 支持 wiki 持久化恢复
+- titlebar：matchRoute 匹配 wiki route；createEffect 对 wiki route 自动 addWikiTab（navigate(wikiHref) 即触发建标签）；tab-strip 复用 DraftTabSlot 渲染 Wiki 标签
+- 主页：浮动新建按钮改为搜索栏下方文档流内右对齐垂直堆叠（新建会话 + Wiki），消除与会话列表重叠
+- wiki 页：/:dir/wiki 恒渲染 WikiPage（删 SessionWikiRedirect/session-wiki-redirect.tsx）；返回时活跃任务 confirm+cancel；openwiki-panel 模型 label 换为 ModelSelectorPopoverV2（与会话同源可选模型）
+- 验证：dev 浏览器 8 项实测全通过（按钮布局/建标签/模型 popover/切换/去重/持久化/会话页无入口/关标签）；app typecheck 通过；desktop renderer 构建产物 grep 验证（openwikis/addWikiTab）
+
 README 更新（随 Linux 打包同步）：
 - OpenWiki 特性列表补充“Wiki 页面按会话记忆/自动恢复”（对应 dc515e4）
 - 桌面应用章节新增 NOTE：personal 分支 CI 每次 push 产出 Windows 安装包 + Linux AppImage，附产物下载入口；注明未签名、Linux 需 Node.js
@@ -149,7 +157,7 @@ README 更新（随 Linux 打包同步）：
 ------------------------------
 对照：D:\work\ai\openchamber\openchamber @ 1fa02046
   - generate/update + gateway + consent + format get/put + 打包     Chamber✅ / OC✅（手测可跑）
-  - 可见入口                                                         Chamber✅ / OC✅（新建会话 + 会话页 + TUI + 全页）
+  - 可见入口                                                         Chamber✅ / OC✅（主页按钮 + 顶部标签 + 新会话页 /wiki + TUI + 全页；91ac758 起会话页入口已移除）
   - Wiki 文件树 + 预览（本仓局部）                                     Chamber✅ / OC✅（全页树+预览）
   - reference-sources / format parse-merge / Word / smoke            Chamber✅ / OC◐（N1+N2 已提交；N4 安装包手测待做）
 
