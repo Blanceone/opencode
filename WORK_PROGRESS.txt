@@ -1,6 +1,6 @@
 OpenCode 本机集成 — 工作进展与后续事项
 ============================================
-日期：2026-08-16（Wiki 独立标签页重构 91ac758；oc-dist 待再次重打）
+日期：2026-08-18（openwiki 打包依赖绑定加固；离线机 Cannot find module 修复）
 分支：personal（基于 origin/dev 浅克隆）
 远程：origin = https://github.com/Blanceone/opencode.git（同步用 origin/dev；本线推 origin/personal）
 本机约束：
@@ -9,8 +9,21 @@ OpenCode 本机集成 — 工作进展与后续事项
   - OpenWiki worker 必须用 Node（非 Bun）：OPENWIKI_NODE_BINARY 或 PATH 上的 node
     用户安装包不得依赖 ELECTRON_RUN_AS_NODE 跑 better-sqlite3（ABI 易挂）
 
-零、交接说明（2026-08-16，最新状态）
+零、交接说明（2026-08-18，最新状态）
 ----------------------------------
+【本次修复】openwiki 打包依赖运行期绑定漏洞（离线机 `Cannot find module ...\resources\openwiki\node_modules\@langchain\openai\dist\index.js`，提示 Did you mean vendor_modules/@langchain...）
+- 根因：ensureOpenWikiDependencyModules 的依赖树探针只查 @anthropic-ai/vertex-sdk/package.json 一个文件；
+  离线机上 resources\openwiki\node_modules 是残留的半成品真实目录（有 vertex-sdk、缺 @langchain/openai/dist），
+  探针命中即短路返回、跳过 junction 重建 → Node 从残目录解析 @langchain/openai（package.json 在、dist/index.js 缺）→ 报错。
+  注：安装包内 vendor_modules 本身完整（本机 prepare-openwiki 复跑验证 153 包 + @langchain/openai/dist/index.js 存在）。
+- 修复 1 packages/openwiki/src/resolve-package.js：探针改为 REQUIRED 4 包校验
+  （@anthropic-ai/vertex-sdk、deepagents、@langchain/core、@langchain/openai），残品目录不再短路，强制重建 junction
+- 修复 2 .github/workflows/build-desktop.yml：win+linux verify 各加 test -f .../@langchain/openai/dist/index.js
+  （原先只查 package.json，抓不住入口文件缺失）
+- 修复 3 packages/desktop/scripts/prebuild.ts：去掉 `.nothrow()`，prepare-openwiki 失败不再被吞（prod 缺 bundle 直接红）
+- 验证：openwiki 37 pass；模拟"残品 node_modules(仅 vertex-sdk) + 完整 vendor_modules"→ 正确重建 junction
+- 离线机应急修复（不重打包）：完全退出 App → 删 resources\openwiki\node_modules → 重启（运行时自动建 junction）
+
 【我们在干什么】
 把 OpenChamber 的 OpenWiki（代码库文档生成，产物 <项目>/.wiki/）集成进 OpenCode 桌面/Web 应用。
 当前最新里程碑是【91ac758】Wiki 独立标签页重构：
