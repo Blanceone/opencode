@@ -66,6 +66,7 @@ jobs:
           test -f packages/desktop/dist/win-unpacked/resources/openwiki/worker.mjs
           test -f packages/desktop/dist/win-unpacked/resources/openwiki/dist/agent/index.js
           test -f packages/desktop/dist/win-unpacked/resources/openwiki/vendor_modules/@langchain/openai/package.json
+          test -f packages/desktop/dist/win-unpacked/resources/openwiki/vendor_modules/@langchain/openai/dist/index.js
           test -f packages/desktop/dist/opencode-desktop-win-x64.exe
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -123,6 +124,7 @@ jobs:
           test -f packages/desktop/dist/linux-unpacked/resources/openwiki/worker.mjs
           test -f packages/desktop/dist/linux-unpacked/resources/openwiki/dist/agent/index.js
           test -f packages/desktop/dist/linux-unpacked/resources/openwiki/vendor_modules/@langchain/openai/package.json
+          test -f packages/desktop/dist/linux-unpacked/resources/openwiki/vendor_modules/@langchain/openai/dist/index.js
           test -f packages/desktop/dist/opencode-desktop-linux-x86_64.AppImage
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

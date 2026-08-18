@@ -9,9 +9,10 @@ const require = createRequire(import.meta.url);
 /** Packaged Electron ships deps here — electron-builder strips `node_modules` from extraResources. */
 export const OPENWIKI_VENDOR_DIR = 'vendor_modules';
 
-const PROBE_PACKAGE = path.join('@anthropic-ai', 'vertex-sdk', 'package.json');
+const REQUIRED_PACKAGES = ['@anthropic-ai/vertex-sdk', 'deepagents', '@langchain/core', '@langchain/openai'];
 
-const hasDependencyTree = (depsRoot) => fs.existsSync(path.join(depsRoot, PROBE_PACKAGE));
+const hasDependencyTree = (depsRoot) =>
+  REQUIRED_PACKAGES.every((name) => fs.existsSync(path.join(depsRoot, ...name.split('/'), 'package.json')));
 
 const repoRootFromHere = () => {
   let dir = path.dirname(fileURLToPath(import.meta.url));
